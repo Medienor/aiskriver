@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+.article-content {
+  font-family: 'Inter', sans-serif;
+  color: #000000;
+  line-height: 1.6;
+}
+
+.article-content h2 {
+    font-family: 'Inter', sans-serif;
+    color: inherit;
+    line-height: 1.6;
+    font-size:22px;
+    font-weight:700;
+  }
+
+  .article-content h3 {
+    font-family: 'Inter', sans-serif;
+    color: inherit;
+    line-height: 1.6;
+    font-size:18px;
+    font-weight:700;
+  }
+
+  .article-content a {
+    font-family: 'Inter', sans-serif;
+    color: #06f;
+    line-height: 1.6;
+    font-size:inherit;
+    font-weight:600;
+  }
+
+/* ... rest of your CSS ... */
+
+@keyframes skeleton-load {
+  from {
+    left: -150px;
+  }
+  to {
+    left: 100%;
+  }
+}
