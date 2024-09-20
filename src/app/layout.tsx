@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from 'next/font/google';
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider"
 import { Navbar } from "@/components/Navbar"
 import { SideMenu } from "@/components/SideMenu"
-import { SessionProvider } from "@/components/session-provider"
+import { Providers } from "@/components/Providers"
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -15,33 +14,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="no" suppressHydrationWarning>
-      <head>
-        <meta charSet="utf-8" />
-      </head>
-      <body className={`${inter.className} antialiased bg-white dark:bg-gray-900`}>
-        <SessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <div className="flex h-screen">
+    <html lang="en">
+      <body className={inter.className}>
+        <Providers>
+          <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
+            <Navbar />
+            <div className="flex flex-1 pt-16">
               <SideMenu />
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <Navbar />
-                <main className="flex-1 overflow-auto bg-white dark:bg-gray-900">
-                  {children}
-                </main>
-              </div>
+              <main className="flex-1 w-full p-4 md:ml-64 bg-white dark:bg-gray-900">
+                {children}
+              </main>
             </div>
-          </ThemeProvider>
-        </SessionProvider>
+          </div>
+        </Providers>
       </body>
     </html>
   );

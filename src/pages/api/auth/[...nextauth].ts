@@ -1,6 +1,19 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import { supabase } from '../../../lib/supabase'
+import { Session } from "next-auth"
+
+// Add this type declaration at the top of your file
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string
+      name?: string | null
+      email?: string | null
+      image?: string | null
+    }
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -99,7 +112,6 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/auth/signin',
   },
-  basePath: "http://localhost:3000/api/auth",
 }
 
 export default NextAuth(authOptions)

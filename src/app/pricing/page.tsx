@@ -10,19 +10,30 @@ interface PricingTierProps {
   features: string[];
   isPopular?: boolean;
   isAnnual: boolean;
+  stripeLinkMonthly: string;
+  stripeLinkYearly: string;
 }
 
-const PricingTier: React.FC<PricingTierProps> = ({ title, monthlyPrice, features, isPopular = false, isAnnual }) => {
-  const annualPrice = monthlyPrice * 12 * 0.8; // 20% discount for annual
-  const displayPrice = isAnnual ? annualPrice : monthlyPrice * 1.2; // 20% increase for monthly
+const PricingTier: React.FC<PricingTierProps> = ({ 
+  title, 
+  monthlyPrice, 
+  features, 
+  isPopular = false, 
+  isAnnual, 
+  stripeLinkMonthly, 
+  stripeLinkYearly 
+}) => {
+  const yearlyPrice = Math.round(monthlyPrice * 0.8);
+  const displayPrice = isAnnual ? yearlyPrice : monthlyPrice;
+  const stripeLink = isAnnual ? stripeLinkYearly : stripeLinkMonthly;
 
   return (
     <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg ${isPopular ? 'border-2 border-blue-500 dark:border-blue-400' : ''}`}>
-      {isPopular && <div className="text-blue-500 dark:text-blue-400 font-bold mb-2">Most Popular</div>}
+      {isPopular && <div className="text-blue-500 dark:text-blue-400 font-bold mb-2">Mest Populær</div>}
       <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{title}</h2>
-      <p className="text-4xl font-bold mb-2 text-gray-900 dark:text-white">${displayPrice.toFixed(2)}</p>
+      <p className="text-4xl font-bold mb-2 text-gray-900 dark:text-white">{displayPrice} kr</p>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-        {isAnnual ? `$${monthlyPrice.toFixed(2)} / month` : 'per month'}
+        per måned
       </p>
       <ul className="mb-6 space-y-2">
         {features.map((feature, index) => (
@@ -34,9 +45,16 @@ const PricingTier: React.FC<PricingTierProps> = ({ title, monthlyPrice, features
           </li>
         ))}
       </ul>
-      <Button className="w-full bg-[#06f] hover:bg-blue-700 text-white">
-        {isPopular ? 'Start Free Trial' : 'Choose Plan'}
-      </Button>
+      <a href={stripeLink} target="_blank" rel="noopener noreferrer" className="w-full">
+        <Button className="w-full bg-[#06f] hover:bg-blue-700 text-white">
+          {isPopular ? 'Prøv det ut gratis' : 'Velg pakke'}
+        </Button>
+      </a>
+      {isAnnual && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+          Du blir fakturert for hele beløpet ved start
+        </p>
+      )}
     </div>
   )
 }
@@ -46,64 +64,76 @@ export default function Pricing() {
 
   const pricingTiers = [
     {
-      title: "Basic",
-      monthlyPrice: 9,
+      title: "Starter",
+      monthlyPrice: 250,
       features: [
-        "1,000 words per month",
-        "Basic AI writing tools",
-        "Email support"
-      ]
+        "45 000 ord per måned",
+        "Grunnleggende AI-skriveverktøy",
+        "E-poststøtte"
+      ],
+      stripeLinkMonthly: "https://buy.stripe.com/8wM02s7Yi0XNb849AA",
+      stripeLinkYearly: "https://buy.stripe.com/8wM02s7Yi0XNb849AA"
     },
     {
       title: "Pro",
-      monthlyPrice: 29,
+      monthlyPrice: 490,
       features: [
-        "10,000 words per month",
-        "Advanced AI writing tools",
-        "Priority email support",
-        "SEO optimization"
+        "100 000 ord per måned",
+        "Avanserte AI-skriveverktøy",
+        "Prioritert e-poststøtte",
+        "SEO-optimalisering"
       ],
-      isPopular: true
+      isPopular: true,
+      stripeLinkMonthly: "https://buy.stripe.com/3cs3eEbau0XNa408wx",
+      stripeLinkYearly: "https://buy.stripe.com/3cs3eEbau0XNa408wx"
     },
     {
-      title: "Enterprise",
-      monthlyPrice: 99,
+      title: "Boost",
+      monthlyPrice: 990,
       features: [
-        "Unlimited words",
-        "All Pro features",
-        "Dedicated account manager",
-        "Custom AI model training"
-      ]
+        "Ubegrenset antall ord",
+        "Alle Pro-funksjoner",
+        "Dedikert kontoansvarlig",
+        "Tilpasset AI-modelltrening"
+      ],
+      stripeLinkMonthly: "https://buy.stripe.com/14kbLa3I28qfekg7su",
+      stripeLinkYearly: "https://buy.stripe.com/14kbLa3I28qfekg7su"
     },
     {
-      title: "Starter",
-      monthlyPrice: 19,
+      title: "Vekst",
+      monthlyPrice: 1800,
       features: [
-        "5,000 words per month",
-        "Basic AI writing tools",
-        "Email support",
-        "Content templates"
-      ]
+        "200 000 ord per måned",
+        "Grunnleggende AI-skriveverktøy",
+        "E-poststøtte",
+        "Innholdsmaler"
+      ],
+      stripeLinkMonthly: "https://buy.stripe.com/cN27uUemGcGv1xueUX",
+      stripeLinkYearly: "https://buy.stripe.com/cN27uUemGcGv1xueUX"
     },
     {
-      title: "Team",
-      monthlyPrice: 79,
+      title: "Elite",
+      monthlyPrice: 3490,
       features: [
-        "50,000 words per month",
-        "Advanced AI writing tools",
-        "Priority support",
-        "Team collaboration features"
-      ]
+        "800 000 ord per måned",
+        "Avanserte AI-skriveverktøy",
+        "Prioritert støtte",
+        "Teamsamarbeidsfunksjoner"
+      ],
+      stripeLinkMonthly: "https://buy.stripe.com/dR63eEfqK7mbekg148",
+      stripeLinkYearly: "https://buy.stripe.com/dR63eEfqK7mbekg148"
     },
     {
-      title: "Custom",
-      monthlyPrice: 199,
+      title: "Super",
+      monthlyPrice: 4990,
       features: [
-        "Custom word limit",
-        "All Enterprise features",
-        "API access",
-        "Custom integrations"
-      ]
+        "1 500 000 ord per måned",
+        "Alle Bedrift-funksjoner",
+        "API-tilgang",
+        "Tilpassede integrasjoner"
+      ],
+      stripeLinkMonthly: "https://buy.stripe.com/7sI9D22DYayn2ByeUZ",
+      stripeLinkYearly: "https://buy.stripe.com/7sI9D22DYayn2ByeUZ"
     }
   ];
 
@@ -111,18 +141,18 @@ export default function Pricing() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Simple, transparent pricing</h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">Choose the plan that&apos;s right for you</p>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Enkel, transparent prising</h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">Velg planen som passer best for deg</p>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            We offer both monthly and annual billing options. Annual billing allows you to save 20% and you get all credits up front for maximum flexibility!
+            Vi tilbyr både månedlig og årlig fakturering. Årlig fakturering gir deg 20% rabatt, og du får alle kreditter på forhånd for maksimal fleksibilitet!
           </p>
           <div className="flex items-center justify-center space-x-4">
-            <span className={`text-sm ${isAnnual ? 'text-gray-900 dark:text-white font-bold' : 'text-gray-500 dark:text-gray-400'}`}>Annual</span>
+            <span className={`text-sm ${isAnnual ? 'text-gray-900 dark:text-white font-bold' : 'text-gray-500 dark:text-gray-400'}`}>Årlig</span>
             <Switch
               checked={!isAnnual}
               onCheckedChange={() => setIsAnnual(!isAnnual)}
             />
-            <span className={`text-sm ${!isAnnual ? 'text-gray-900 dark:text-white font-bold' : 'text-gray-500 dark:text-gray-400'}`}>Monthly</span>
+            <span className={`text-sm ${!isAnnual ? 'text-gray-900 dark:text-white font-bold' : 'text-gray-500 dark:text-gray-400'}`}>Månedlig</span>
           </div>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
@@ -134,6 +164,8 @@ export default function Pricing() {
               features={tier.features}
               isPopular={tier.isPopular}
               isAnnual={isAnnual}
+              stripeLinkMonthly={tier.stripeLinkMonthly}
+              stripeLinkYearly={tier.stripeLinkYearly}
             />
           ))}
         </div>

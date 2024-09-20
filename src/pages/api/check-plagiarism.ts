@@ -73,6 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Response status:', error.response.status);
       console.error('Response headers:', error.response.headers);
     }
-    res.status(500).json({ message: 'Error checking plagiarism', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ message: 'Error checking plagiarism', error: errorMessage });
   }
 }

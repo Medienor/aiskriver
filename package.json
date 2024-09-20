@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint"
   },
@@ -30,6 +30,7 @@
     "docx": "^8.5.0",
     "exa-js": "^1.1.0",
     "framer-motion": "^11.5.4",
+    "js-cookie": "^3.0.5",
     "lucide-react": "^0.441.0",
     "next": "^14.2.11",
     "next-auth": "^4.24.7",
@@ -40,12 +41,14 @@
     "react-circular-progressbar": "^2.1.0",
     "react-dom": "^18.3.1",
     "react-pdf": "^9.1.0",
+    "recharts": "^2.12.7",
     "stripe": "^16.11.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

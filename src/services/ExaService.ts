@@ -22,7 +22,7 @@ export async function performWebSearch(title: string) {
       {
         type: "auto",
         useAutoprompt: true,
-        numResults: 15,
+        numResults: 3,
         text: true,
         summary: true
       }

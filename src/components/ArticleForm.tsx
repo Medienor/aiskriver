@@ -24,6 +24,12 @@ interface ProjectFolder {
   name: string;
 }
 
+interface Snippet {
+  snippet_id: string;
+  title: string;
+  snippet: string;
+}
+
 interface ArticleFormProps {
   onSubmit: (formData: FormData) => void;
   wordsRemaining: number;
@@ -79,9 +85,12 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
   const [numberOfSources, setNumberOfSources] = useState<number>(1)
   const [projectFolders, setProjectFolders] = useState<ProjectFolder[]>([])
   const [selectedProject, setSelectedProject] = useState('')
+  const [snippets, setSnippets] = useState<Snippet[]>([]);
+  const [selectedSnippet, setSelectedSnippet] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProjectFolders()
+    fetchSnippets()
   }, [userEmail])
 
   const fetchProjectFolders = async () => {
@@ -98,9 +107,24 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
     }
   }
 
+  const fetchSnippets = async () => {
+    if (!userEmail) return;
+
+    const { data, error } = await supabase
+      .from('saved_snippets')
+      .select('snippet_id, title, snippet')
+      .eq('user_id', userEmail);
+
+    if (error) {
+      console.error('Error fetching snippets:', error);
+    } else {
+      setSnippets(data || []);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const formData = { 
+    const formData: FormData = { 
       title, 
       articleType, 
       projectId: selectedProject, // Include the selected project ID
@@ -113,7 +137,10 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
       includeVideos, 
       includeSources, 
       enableWebSearch, 
-      numberOfSources 
+      numberOfSources, 
+      selectedSnippet: selectedSnippet 
+        ? snippets.find(s => s.snippet_id === selectedSnippet)?.snippet || null
+        : null,
     }
     onSubmit(formData)
   }
@@ -134,31 +161,46 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
     }
   }
 
-  const ExtraOption = ({ id, label, checked, onChange, tooltip, disabled = false, children }) => (
+  interface ExtraOptionProps {
+    id: string;
+    label: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    tooltip: string;
+    disabled?: boolean;
+    children?: React.ReactNode;
+  }
+
+  const ExtraOption: React.FC<ExtraOptionProps> = ({ id, label, checked, onChange, tooltip, disabled = false, children }) => (
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-2">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Label htmlFor={id} className="flex items-center space-x-2 cursor-pointer text-gray-700 dark:text-gray-300">
-                <InfoIcon size={16} className="text-gray-400" />
-                <span>{label}</span>
-              </Label>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id={id}
+                  checked={checked}
+                  onCheckedChange={onChange}
+                  disabled={disabled}
+                />
+                <label
+                  htmlFor={id}
+                  className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${
+                    disabled ? 'text-gray-400' : 'text-gray-900 dark:text-gray-100'
+                  }`}
+                >
+                  {label}
+                </label>
+              </div>
             </TooltipTrigger>
             <TooltipContent>
               <p>{tooltip}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        {children}
       </div>
-      <Switch
-        id={id}
-        checked={checked}
-        onCheckedChange={onChange}
-        className="bg-gray-200 data-[state=checked]:bg-[#06f] dark:bg-gray-700"
-        disabled={disabled}
-      />
+      {children}
     </div>
   )
 
@@ -289,6 +331,25 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
           tooltip="Tillat AI-en å søke på nettet for oppdatert og relevant informasjon til artikkelen."
           disabled={includeSources}
         />
+      </div>
+      <div>
+        <label htmlFor="snippet" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Kapsler</label>
+        <Select onValueChange={setSelectedSnippet} value={selectedSnippet || undefined}>
+          <SelectTrigger>
+            <SelectValue placeholder="Velg en kapsel" />
+          </SelectTrigger>
+          <SelectContent>
+            {snippets.length > 0 ? (
+              snippets.map((snippet) => (
+                <SelectItem key={snippet.snippet_id} value={snippet.snippet_id}>
+                  {snippet.title}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="no_snippets">Du har ingen kapsler</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
       </div>
       <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
         Gjenværende ord: {wordsRemaining} / Totalt: {totalWords}

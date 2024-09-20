@@ -22,6 +22,7 @@ import '@/styles/article-styles.css'
 import { checkPlagiarism, CopyscapeResult } from '../../../services/CopyscapeService';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { WordCountService } from '../../../services/WordCountService'
+import { fixStreamedHTML } from '../../../utils/FixHTML';
 
 export default function ArticlePage() {
   const params = useParams()
@@ -56,9 +57,10 @@ export default function ArticlePage() {
   const [plagiarismResult, setPlagiarismResult] = useState<CopyscapeResult | null>(null);
   const [plagiatChecksRemaining, setPlagiatChecksRemaining] = useState(0)
   const [isPlagiarismDialogOpen, setIsPlagiarismDialogOpen] = useState(false);
+  const hasStartedGenerating = useRef(false);
 
   useEffect(() => {
-    if (session?.user?.email && id && isInitialLoad) {
+    if (session?.user?.email && id && isInitialLoad && !hasStartedGenerating.current) {
       fetchArticleAndGenerate()
       fetchWordCount()
       fetchPlagiatChecksRemaining()
@@ -67,6 +69,9 @@ export default function ArticlePage() {
   }, [session, id, isInitialLoad])
   
   const fetchArticleAndGenerate = async () => {
+    if (hasStartedGenerating.current) return;
+    hasStartedGenerating.current = true;
+    
     try {
       const { data: articleData, error: articleError } = await supabase
         .from('articles')
@@ -76,16 +81,70 @@ export default function ArticlePage() {
   
       if (articleError) throw articleError
   
-      if (articleData.status === 'draft' && isNewArticle) {
-        // Only start generation if it hasn't started yet
-        setIsGenerating(true)
-        setGeneratedContent('Genererer artikkel...')
-        // Start polling for updates
-        pollForArticleUpdates()
+      if (articleData.status === 'pending') {
+        setIsGenerating(true);
+        setGeneratedContent('Genererer artikkel...');
+        
+        const formData = JSON.parse(articleData.formData);
+
+        // Update the status to 'generating' to prevent duplicate generations
+        await supabase
+          .from('articles')
+          .update({ status: 'generating' })
+          .eq('articleid', id);
+
+        const response = await fetch('/api/test-openai', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        if (!response.body) throw new Error('No response body');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+              const content = line.slice(6);
+              fullContent += content;
+              const fixedContent = fixStreamedHTML(content);
+              setStreamedContent(prev => prev + fixedContent);
+            }
+          }
+        }
+
+        // Deduct words only once, after the full content is generated
+        const wordCount = fullContent.split(/\s+/).length;
+        const wordCountService = WordCountService.getInstance();
+        await wordCountService.initializeUser(session?.user?.email || '');
+        await wordCountService.deductWords(wordCount);
+
+        // Update the article status to 'generated' in the database
+        await supabase
+          .from('articles')
+          .update({ 
+            html: fullContent,
+            status: 'generated'
+          })
+          .eq('articleid', id);
+
+        setGeneratedContent(fullContent);
+        setIsGenerating(false);
+        setIsLoading(false);
+        fetchWordCount(); // Update the displayed word count
       } else if (articleData.status === 'generating') {
         // If it's already generating, just start polling
-        setIsGenerating(true)
-        pollForArticleUpdates()
+        setIsGenerating(true);
+        pollForArticleUpdates();
       } else {
         // If it's already generated, just display the content
         setGeneratedContent(cleanArticleContent(articleData.html))
@@ -503,7 +562,7 @@ export default function ArticlePage() {
           onBlur={isEditing ? handleSaveEdit : undefined}
           dangerouslySetInnerHTML={{ 
             __html: isGenerating 
-              ? streamedContent || '<p>Genererer artikkel...</p>'
+              ? streamedContent
               : cleanArticleContent(showUpgraded && hasUpgradedVersion ? upgradedContent : generatedContent)
           }}
         />

@@ -6,13 +6,14 @@ import { useEffect, useState } from "react"
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
-import { Trash2, Pencil, X } from 'lucide-react'
+import { Trash2, Pencil, X, Search, Eye } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { FolderArticleManager } from "@/components/FolderArticleManager"
 import { FolderArticleList } from "@/components/FolderArticleList"
 import { WordCountService } from '../../services/WordCountService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 interface Article {
   articleid: string;
@@ -34,6 +35,13 @@ interface ProjectFolder {
   created_at: string;
   user_email: string;
   article_count: number;
+}
+
+interface Snippet {
+  snippet_id: string;
+  title: string;
+  date: string;
+  snippet: string;
 }
 
 async function getUserSubscription(email: string) {
@@ -65,14 +73,16 @@ export default function Profile() {
   const [projectFolders, setProjectFolders] = useState<ProjectFolder[]>([])
   const [newFolderName, setNewFolderName] = useState('')
   const [editingFolderId, setEditingFolderId] = useState<number | null>(null)
+  const [snippets, setSnippets] = useState<Snippet[]>([])
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/auth/signin")
+      router.push("/auth")
     } else if (status === "authenticated" && session?.user?.email) {
       fetchArticles();
       fetchSubscription();
       fetchProjectFolders();
+      fetchSnippets();
     }
   }, [status, router, session])
 
@@ -82,6 +92,7 @@ export default function Profile() {
         fetchSubscription();
         fetchArticles();
         fetchProjectFolders();
+        fetchSnippets();
       }
     };
 
@@ -156,6 +167,22 @@ export default function Profile() {
     }));
 
     setProjectFolders(foldersWithCount);
+  }
+
+  const fetchSnippets = async () => {
+    if (!session?.user?.email) return;
+
+    const { data, error } = await supabase
+      .from('saved_snippets')
+      .select('snippet_id, title, date, snippet')
+      .eq('user_id', session.user.email)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching snippets:', error);
+    } else {
+      setSnippets(data || []);
+    }
   }
 
   const handleUpgrade = () => {
@@ -253,6 +280,37 @@ export default function Profile() {
     }
   }
 
+  const handleDeleteSnippet = async (snippetId: string) => {
+    if (!session?.user?.email) return;
+
+    const confirmDelete = window.confirm('Er du sikker på at du vil slette denne kapselen?');
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('saved_snippets')
+        .delete()
+        .eq('snippet_id', snippetId)
+        .eq('user_id', session.user.email);
+
+      if (error) throw error;
+
+      setSnippets(prevSnippets => prevSnippets.filter(snippet => snippet.snippet_id !== snippetId));
+    } catch (err) {
+      console.error('Error deleting snippet:', err);
+      alert('Kunne ikke slette kapselen. Vennligst prøv igjen.');
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('nb-NO', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit' 
+    });
+  };
+
   if (status === "loading") {
     return <div className="flex justify-center items-center h-screen">Laster...</div>
   }
@@ -344,16 +402,16 @@ export default function Profile() {
                 Slett alle
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent className="bg-white dark:bg-gray-800">
               <AlertDialogHeader>
-                <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
-                <AlertDialogDescription>
+                <AlertDialogTitle className="text-gray-900 dark:text-white">Er du sikker?</AlertDialogTitle>
+                <AlertDialogDescription className="text-gray-600 dark:text-gray-300">
                   Dette vil slette alle artiklene dine permanent. Denne handlingen kan ikke angres.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAllArticles}>Slett alle</AlertDialogAction>
+                <AlertDialogCancel className="bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">Avbryt</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAllArticles} className="bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700">Slett alle</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -397,16 +455,16 @@ export default function Profile() {
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="Nytt prosjektnavn"
-                className="mr-2"
+                className="mr-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
-              <Button type="submit">Legg til</Button>
+              <Button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white">Legg til</Button>
             </form>
             <ul className="space-y-2">
               {projectFolders.map((folder) => (
                 <li key={folder.id} className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-2 rounded">
                   <div className="flex items-center">
                     <FolderArticleList folderId={folder.id} articleCount={folder.article_count} />
-                    <span className="ml-2">{folder.name}</span>
+                    <span className="ml-2 text-gray-900 dark:text-white">{folder.name}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <FolderArticleManager 
@@ -418,6 +476,7 @@ export default function Profile() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingFolderId(folder.id)}
+                      className="text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -425,6 +484,7 @@ export default function Profile() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteFolder(folder.id)}
+                      className="text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -434,6 +494,59 @@ export default function Profile() {
             </ul>
           </CardContent>
         </Card>
+
+        {/* Mine kapsler */}
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Mine kapsler</h2>
+          {snippets.length > 0 ? (
+            <ul className="space-y-4">
+              {snippets.map((snippet) => (
+                <li key={snippet.snippet_id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{snippet.title}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Opprettet: {formatDate(snippet.date)}
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800">
+                        <DialogHeader>
+                          <DialogTitle className="text-gray-900 dark:text-white">{snippet.title}</DialogTitle>
+                        </DialogHeader>
+                        <div className="mt-4 max-h-[60vh] overflow-y-auto">
+                          <div 
+                            className="prose dark:prose-invert max-w-none" 
+                            dangerouslySetInnerHTML={{ __html: snippet.snippet }}
+                          />
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Button
+                      onClick={() => handleDeleteSnippet(snippet.snippet_id)}
+                      variant="outline"
+                      size="sm"
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">Du har ingen lagrede kapsler ennå.</p>
+          )}
+        </div>
       </div>
     </div>
   )

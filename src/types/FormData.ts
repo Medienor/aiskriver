@@ -12,4 +12,5 @@ export interface FormData {
   includeSources: boolean;
   enableWebSearch: boolean;
   numberOfSources: number;
+  selectedSnippet: string | null;  // Add this line
 }
