@@ -1,0 +1,3 @@
+.katexContainer :global(.katex-display > .katex > .katex-html) {
+  text-align: left;
+}

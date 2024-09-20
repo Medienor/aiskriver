@@ -58,6 +58,7 @@ export default function ArticlePage() {
   const [plagiatChecksRemaining, setPlagiatChecksRemaining] = useState(0)
   const [isPlagiarismDialogOpen, setIsPlagiarismDialogOpen] = useState(false);
   const hasStartedGenerating = useRef(false);
+  const [isUpgradeInitiated, setIsUpgradeInitiated] = useState(false);
 
   useEffect(() => {
     if (session?.user?.email && id && isInitialLoad && !hasStartedGenerating.current) {
@@ -151,6 +152,7 @@ export default function ArticlePage() {
         setUpgradedContent(cleanArticleContent(articleData.upgraded_html || ''))
         setGeneratedDate(articleData.created_at || null)
         setHasUpgradedVersion(!!articleData.upgraded_html)
+        setIsUpgradeInitiated(!!articleData.upgraded_html)
         setIsLoading(false)
         setIsGenerating(false)
       }
@@ -248,6 +250,7 @@ export default function ArticlePage() {
     setIsApiOperationInProgress(true);
     setError(null);
     setUpgradedContent('');
+    setIsUpgradeInitiated(true);
     setShowUpgraded(true);
 
     try {
@@ -546,14 +549,16 @@ export default function ArticlePage() {
           >
             Original
           </button>
-          <button
-            onClick={() => setShowUpgraded(true)}
-            className={`text-sm ${showUpgraded ? 'text-blue-600 font-semibold' : 'text-gray-500'} hover:underline`}
-            disabled={isApiOperationInProgress}
-            style={{ opacity: isApiOperationInProgress ? 0.5 : 1 }}
-          >
-            {isApiOperationInProgress ? 'Oppgraderer...' : 'Oppgradert'}
-          </button>
+          {isUpgradeInitiated && (
+            <button
+              onClick={() => setShowUpgraded(true)}
+              className={`text-sm ${showUpgraded ? 'text-blue-600 font-semibold' : 'text-gray-500'} hover:underline`}
+              disabled={isApiOperationInProgress}
+              style={{ opacity: isApiOperationInProgress ? 0.5 : 1 }}
+            >
+              {isApiOperationInProgress ? 'Oppgraderer...' : 'Oppgradert'}
+            </button>
+          )}
         </div>
         <div 
           ref={editableContentRef}

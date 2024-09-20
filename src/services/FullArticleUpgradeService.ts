@@ -32,9 +32,10 @@ export async function* upgradeFullArticle(content: string, settings: UpgradeSett
   try {
     console.log('Calling OpenAI API...');
     const stream = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       stream: true,
+      max_tokens: 16383,
     });
 
     for await (const chunk of stream) {

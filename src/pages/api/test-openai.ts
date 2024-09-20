@@ -16,7 +16,7 @@ function createCustomPrompt(formData: any): string {
     Nøkkelord: ${formData.keywords}
     Beskrivelse: ${formData.description}
     Tone: ${formData.tone}
-    Lengde: ${formData.length}
+    Lengde på artikkelen (Det er svært viktig at du alltid skriver 2 til 3 paragrafer under hver seksjon/titte, dette er et krav.): ${formData.length}
     Språk: ${formData.language}
     Inkluder bilder: ${formData.includeImages ? 'Ja' : 'Nei'}
     Inkluder videoer: ${formData.includeVideos ? 'Ja' : 'Nei'}
@@ -63,9 +63,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const customPrompt = createCustomPrompt(formData);
       console.log('Custom prompt:', customPrompt);
       stream = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: customPrompt }],
         stream: true,
+        max_tokens: 16383,
+
       });
     }
 

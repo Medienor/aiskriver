@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import { Button } from "@/components/ui/button";
-import { Home, MessageSquare, Smile, User, Search, Link as LinkIcon } from 'lucide-react';
+import { Home, MessageSquare, Smile, User, Search, Link as LinkIcon, Calculator } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Article {
@@ -81,6 +81,12 @@ export function SideMenu() {
               <Link href="/affiliate" className="flex items-center py-2 px-4 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
                 <LinkIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
                 Affiliate
+              </Link>
+            </li>
+            <li>
+              <Link href="/matteloser" className="flex items-center py-2 px-4 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
+                <Calculator className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
+                Matteløser
               </Link>
             </li>
           </ul>

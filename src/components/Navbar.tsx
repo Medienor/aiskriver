@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button"
-import { MoonIcon, SunIcon, MenuIcon } from "lucide-react"
+import { MoonIcon, SunIcon, MenuIcon, Sparkles } from "lucide-react"
 import { useTheme } from "next-themes"
 import { signIn, signOut, useSession } from "next-auth/react"
 import Link from 'next/link'
@@ -39,7 +39,8 @@ export function Navbar() {
       <nav className="fixed top-0 left-0 right-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="text-2xl font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+            <Link href="/" className="flex items-center text-2xl font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+              <Sparkles className="h-6 w-6 mr-2" /> {/* Added sparkling icon */}
               Innhold.AI
             </Link>
             <div className="flex items-center space-x-4">

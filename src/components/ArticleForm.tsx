@@ -257,9 +257,11 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
         value={length}
         onChange={setLength}
         options={[
-          { value: "short", label: "Kort (~500 ord)" },
-          { value: "medium", label: "Middels (~1000 ord)" },
-          { value: "long", label: "Lang (~1500 ord)" },
+          { value: "Kortere (2-3 Seksjoner, 450-900 Ord)", label: "Kortere (2-3 Seksjoner, 450-900 Ord)" },
+          { value: "Kort (3-5 Seksjoner, 950-1350 Ord)", label: "Kort (3-5 Seksjoner, 950-1350 Ord)" },
+          { value: "Middels (5-7 Seksjoner, 1350-1870 Ord)", label: "Middels (5-7 Seksjoner, 1350-1870 Ord)" },
+          { value: "Lang Form (7-10 Seksjoner, 1900-2440 Ord)", label: "Lang Form (7-10 Seksjoner, 1900-2440 Ord)" },
+          { value: "Lengre (10-12 Seksjoner, 2350-2940 Ord)", label: "Lengre (10-12 Seksjoner, 2350-2940 Ord)" },
         ]}
         placeholder="Velg artikkel lengde"
       />
@@ -372,9 +374,11 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
 
 function getEstimatedWordCount(length: string): number {
   switch (length) {
-    case 'short': return 500;
-    case 'medium': return 1000;
-    case 'long': return 1500;
-    default: return 1000;
+    case "Kortere (2-3 Seksjoner, 450-900 Ord)": return 675; // average of 450 and 900
+    case "Kort (3-5 Seksjoner, 950-1350 Ord)": return 1150; // average of 950 and 1350
+    case "Middels (5-7 Seksjoner, 1350-1870 Ord)": return 1610; // average of 1350 and 1870
+    case "Lang Form (7-10 Seksjoner, 1900-2440 Ord)": return 2170; // average of 1900 and 2440
+    case "Lengre (10-12 Seksjoner, 2350-2940 Ord)": return 2645; // average of 2350 and 2940
+    default: return 1610; // default to "Middels" if no match
   }
 }

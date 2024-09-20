@@ -27,7 +27,7 @@ export async function generateEnhancedArticle(formData: any) {
       Artikkeltype: ${formData.articleType}
       Nøkkelord: ${formData.keywords}
       Tone: ${formData.tone}
-      Lengde minimum: ${formData.length} (Skriv alltid to eller fler paragrafer under titler)
+      Lengde på artikkelen (Det er svært viktig at du alltid skriver 2 til 3 paragrafer under hver seksjon/titte, dette er et krav.): ${formData.length}.
       Språk: ${formData.language}
 
       Her har du en liste over relevante lenker:
@@ -41,9 +41,10 @@ export async function generateEnhancedArticle(formData: any) {
 
     // Generate article using OpenAI
     const stream = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       stream: true,
+      max_tokens: 16383,
     });
 
     return stream;

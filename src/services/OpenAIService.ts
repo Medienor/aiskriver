@@ -56,14 +56,14 @@ export async function* generateArticle(formData: FormData): AsyncGenerator<strin
 }
 
 function createPrompt(formData: FormData): string {
-  let prompt = `Write an article with the following details:
+  let prompt = `Skriv en artikkel om følgende tema:
     Title: ${formData.title}
-    Type: ${formData.articleType}
-    Keywords: ${formData.keywords}
-    Description: ${formData.description}
-    Tone: ${formData.tone}
-    Length: ${formData.length}
-    Language: ${formData.language}
+    Artikkeltype: ${formData.articleType}
+    Søkeord: ${formData.keywords}
+    Beskrivelse og rettningslinjer: ${formData.description}
+    Din tone: ${formData.tone}
+    Lengde på artikkelen (Det er svært viktig at du alltid skriver 2 til 3 paragrafer under hver seksjon/titte, dette er et krav.): ${formData.length}
+    Språk: ${formData.language}
     Include Images: ${formData.includeImages}
     Include Videos: ${formData.includeVideos}
     Include Sources: ${formData.includeSources}
@@ -75,7 +75,7 @@ function createPrompt(formData: FormData): string {
     prompt += `\n\nPlease incorporate the following snippet into the article:\n${formData.selectedSnippet}`;
   }
     
-  prompt += `\n\nPlease write a comprehensive article based on these parameters.`;
+  prompt += `\n\nVennligst skriv en utdypende artikkel basert på disse parametrene. Det er svært viktig at du alltid skriver 2 til 3 paragrafer under hver seksjon/titte, dette er et krav.`;
 
   return prompt;
 }
@@ -85,7 +85,7 @@ export async function* streamTestPrompt(prompt: string): AsyncGenerator<string, 
     console.log('Calling OpenAI API for test prompt...');
     
     const stream = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       stream: true,
     });
