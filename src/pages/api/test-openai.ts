@@ -9,14 +9,14 @@ const openai = new OpenAI({
 });
 
 function createCustomPrompt(formData: any): string {
-  const basePrompt = `Skriv en artikkel som bruker <h1>,<h2> og <h3> kombinert med paragrafer <p> og lister <li> om tema ${formData.title}.`;
+  const basePrompt = `Skriv en artikkel som bruker <h1>,<h2> og <h3> kombinert med paragrafer <p> og lister <li> om tema ${formData.title}. Skriv titler i Norsk format som kun er en stor forbokstav i begynnelsen av hver tittel.`;
 
   const additionalDetails = `
     Artikkeltype: ${formData.articleType}
     Nøkkelord: ${formData.keywords}
     Beskrivelse: ${formData.description}
     Tone: ${formData.tone}
-    Lengde på artikkelen (Det er svært viktig at du alltid skriver 2 til 3 paragrafer under hver seksjon/titte, dette er et krav.): ${formData.length}
+    Lengde på artikkelen (Det er svært viktig at du alltid skriver 2 til 3 paragrafer under hver seksjon/titte, dette er et krav.): ${formData.length} *Det er svært viktig at artikkelen blir like lang som du har fått beskjed om! Dette er et krav.
     Språk: ${formData.language}
     Inkluder bilder: ${formData.includeImages ? 'Ja' : 'Nei'}
     Inkluder videoer: ${formData.includeVideos ? 'Ja' : 'Nei'}
@@ -29,6 +29,10 @@ function createCustomPrompt(formData: any): string {
 
   if (formData.selectedSnippet) {
     prompt += `\n\nVennligst inkorporer følgende innhold i artikkelen:\n${formData.selectedSnippet}`;
+  }
+
+  if (formData.sitemapUrls && formData.sitemapUrls.length > 0) {
+    prompt += `\n\nHer har du mange relevanter lenker fra nettsiden du skal skrive en artikkel til, ettersom du skriver innholdet kan du se om du finner relevante lenker fra mitt sidekart, om du finner relevante lenker kan du lenke dem opp til relevante søkeord. Her er mitt nettkart:\n${formData.sitemapUrls.join('\n')}`;
   }
 
   prompt += `\n\nVennligst skriv en omfattende artikkel basert på disse parametrene.`;

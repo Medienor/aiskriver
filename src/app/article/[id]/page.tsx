@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { useSession } from "next-auth/react"
 import { supabase } from '../../../lib/supabase'
@@ -14,6 +14,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuCheckboxItem,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -23,6 +24,11 @@ import { checkPlagiarism, CopyscapeResult } from '../../../services/CopyscapeSer
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { WordCountService } from '../../../services/WordCountService'
 import { fixStreamedHTML } from '../../../utils/FixHTML';
+import TextSelectionToolbar from '@/components/TextSelectionToolbar';
+import ContentBlock from '@/components/ContentBlock';
+import { generateTable } from '../../../services/TableGenerationService';
+import { WordPressPostButton } from '@/components/WordPressPostButton';
+import { ChevronDown } from 'lucide-react'
 
 export default function ArticlePage() {
   const params = useParams()
@@ -59,6 +65,9 @@ export default function ArticlePage() {
   const [isPlagiarismDialogOpen, setIsPlagiarismDialogOpen] = useState(false);
   const hasStartedGenerating = useRef(false);
   const [isUpgradeInitiated, setIsUpgradeInitiated] = useState(false);
+  const observerRef = useRef<MutationObserver | null>(null);
+  const [contentBlocks, setContentBlocks] = useState<Array<{ id: string; content: string; type: string }>>([]);
+  const [loadingTableIndex, setLoadingTableIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (session?.user?.email && id && isInitialLoad && !hasStartedGenerating.current) {
@@ -311,18 +320,103 @@ export default function ArticlePage() {
     }
   }
 
-  const handleSaveEdit = async () => {
-    if (editableContentRef.current) {
-      const newContent = editableContentRef.current.innerHTML
-      if (showUpgraded) {
-        setUpgradedContent(newContent)
-      } else {
-        setGeneratedContent(newContent)
+  const handleContentChange = useCallback((index: number, newContent: string) => {
+    setContentBlocks(prevBlocks => {
+      const newBlocks = [...prevBlocks];
+      newBlocks[index] = { ...newBlocks[index], content: newContent };
+      
+      // Update Supabase with the full content
+      const fullContent = newBlocks.map(block => block.content).join('');
+      updateArticleInSupabase(fullContent, showUpgraded);
+      
+      return newBlocks;
+    });
+  }, [showUpgraded]);
+
+  const handleAddElement = useCallback((type: string, index: number) => {
+    setContentBlocks(prevBlocks => {
+      const newBlocks = [...prevBlocks];
+      const newContent = type === 'ul' || type === 'ol' 
+        ? `<${type}><li>New list item</li></${type}>`
+        : `<${type}>New ${type} content</${type}>`;
+      newBlocks.splice(index + 1, 0, {
+        id: `block-${Date.now()}`,
+        content: newContent,
+        type: type,
+      });
+      
+      // Update Supabase with the full content
+      const fullContent = newBlocks.map(block => block.content).join('');
+      updateArticleInSupabase(fullContent, showUpgraded);
+      
+      return newBlocks;
+    });
+  }, [showUpgraded]);
+
+  const handleFormatChange = useCallback((format: string) => {
+    document.execCommand(format, false, undefined);
+    updateContentAfterFormatting();
+  }, []);
+
+  const handleStyleChange = useCallback((style: 'bold' | 'italic' | 'underline') => {
+    console.log('handleStyleChange called with:', style);
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      console.log('Selection before style change:', selection.toString());
+      console.log('Selection range:', {
+        startContainer: selection.anchorNode,
+        startOffset: selection.anchorOffset,
+        endContainer: selection.focusNode,
+        endOffset: selection.focusOffset
+      });
+      
+      try {
+        document.execCommand(style, false, undefined);
+        console.log('Style applied successfully');
+      } catch (error) {
+        console.error('Error applying style:', error);
       }
-      await updateArticleInSupabase(newContent, showUpgraded)
-      setIsEditing(false)
+      
+      console.log('Content after style change:', editableContentRef.current?.innerHTML);
+      updateContentAfterFormatting();
+    } else {
+      console.log('No text selected or selection collapsed');
     }
-  }
+  }, []);
+
+  const handleAddLink = useCallback(() => {
+    const url = prompt('Enter the URL:');
+    if (url) {
+      document.execCommand('createLink', false, url);
+      updateContentAfterFormatting();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (editableContentRef.current) {
+      const content = isGenerating 
+        ? streamedContent
+        : cleanArticleContent(showUpgraded && hasUpgradedVersion ? upgradedContent : generatedContent);
+      
+      if (content) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(content, 'text/html');
+        const blocks = Array.from(doc.body.children).map((child, index) => ({
+          id: `block-${index}`,
+          content: child.outerHTML,
+          type: child.tagName.toLowerCase(),
+        }));
+        setContentBlocks(blocks);
+      }
+    }
+  }, [isGenerating, streamedContent, showUpgraded, hasUpgradedVersion, upgradedContent, generatedContent]);
+
+  const handleContentBlur = useCallback(async () => {
+    if (!isGenerating && !isLoading && editableContentRef.current) {
+      const newContent = editableContentRef.current.innerHTML;
+      await updateArticleInSupabase(newContent, showUpgraded);
+    }
+  }, [isGenerating, isLoading, showUpgraded]);
 
   const updateArticleInSupabase = async (content: string, isUpgraded: boolean) => {
     try {
@@ -397,6 +491,127 @@ export default function ArticlePage() {
     setPlagiarismResult(null);
   };
 
+  const handleAICommand = () => {
+    // Implement AI command functionality
+    console.log('AI command triggered');
+  };
+
+  const handleCite = () => {
+    // Implement citation functionality
+    console.log('Citation triggered');
+  };
+
+  const handleReplaceSelection = useCallback((newText: string) => {
+    console.log('handleReplaceSelection called with:', newText);
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      console.log('Selection range before:', range.toString());
+      range.deleteContents();
+      const textNode = document.createTextNode(newText);
+      range.insertNode(textNode);
+      console.log('Content after replacement:', editableContentRef.current?.innerHTML);
+      updateContentAfterFormatting();
+    }
+  }, []);
+
+  const handleInsertBelow = useCallback((newText: string) => {
+    console.log('handleInsertBelow called with:', newText);
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      console.log('Selection range before:', range.toString());
+      const newParagraph = document.createElement('p');
+      newParagraph.textContent = newText;
+      range.collapse(false);
+      range.insertNode(newParagraph);
+      console.log('Content after insertion:', editableContentRef.current?.innerHTML);
+      updateContentAfterFormatting();
+    }
+  }, []);
+
+  const updateContentAfterFormatting = useCallback(() => {
+    console.log('updateContentAfterFormatting called');
+    if (editableContentRef.current) {
+      console.log('Content before update:', editableContentRef.current.innerHTML);
+      const newBlocks = Array.from(editableContentRef.current.children).map((child, index) => {
+        console.log(`Block ${index}:`, child.outerHTML);
+        return {
+          id: `block-${index}`,
+          content: child.outerHTML,
+          type: child.tagName.toLowerCase(),
+        };
+      });
+      setContentBlocks(newBlocks);
+      const fullContent = newBlocks.map(block => block.content).join('');
+      console.log('Full content after update:', fullContent);
+      updateArticleInSupabase(fullContent, showUpgraded);
+    } else {
+      console.log('editableContentRef.current is null');
+    }
+  }, [showUpgraded]);
+
+  const handleDeleteBlock = useCallback(async (index: number) => {
+    setContentBlocks(prevBlocks => {
+      const newBlocks = prevBlocks.filter((_, i) => i !== index);
+      
+      // Update Supabase with the full content
+      const fullContent = newBlocks.map(block => block.content).join('');
+      updateArticleInSupabase(fullContent, showUpgraded);
+      
+      return newBlocks;
+    });
+  }, [showUpgraded]);
+
+  const handleAddTable = useCallback(async (index: number) => {
+    const currentBlock = contentBlocks[index];
+    let heading = '';
+    const paragraph = currentBlock.content;
+
+    // Find the closest h2 or h3
+    for (let i = index - 1; i >= 0; i--) {
+      if (contentBlocks[i].type === 'h2' || contentBlocks[i].type === 'h3') {
+        heading = contentBlocks[i].content.replace(/<[^>]*>/g, '');
+        break;
+      }
+    }
+
+    console.log('Sending to generateTable:', { heading, paragraph });
+
+    setLoadingTableIndex(index);
+
+    try {
+      let tableHtml = await generateTable(heading, paragraph.replace(/<[^>]*>/g, ''));
+      console.log('Received tableHtml:', tableHtml);
+      
+      // Remove ```html and ``` if present
+      tableHtml = tableHtml.replace(/```html\n?|\n?```/g, '');
+
+      // Add a wrapper div with styling
+      tableHtml = `<div class="table-wrapper">${tableHtml}</div>`;
+      
+      setContentBlocks(prevBlocks => {
+        const newBlocks = [...prevBlocks];
+        newBlocks.splice(index + 1, 0, {
+          id: `block-${Date.now()}`,
+          content: tableHtml,
+          type: 'table',
+        });
+        
+        // Update Supabase with the full content
+        const fullContent = newBlocks.map(block => block.content).join('');
+        updateArticleInSupabase(fullContent, showUpgraded);
+        
+        return newBlocks;
+      });
+    } catch (error) {
+      console.error('Error generating table:', error);
+      setError('Failed to generate table. Please try again.');
+    } finally {
+      setLoadingTableIndex(null);
+    }
+  }, [contentBlocks, showUpgraded, updateArticleInSupabase]);
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 py-8">
       <div className="max-w-[1200px] mx-auto px-4">
@@ -420,27 +635,73 @@ export default function ArticlePage() {
             Skrevet {new Date(generatedDate).toLocaleString('no-NO')}
           </p>
         )}
-        <div className="mb-8 flex space-x-4">
+        <div className="mb-8 flex space-x-4 min-w-max overflow-x-auto">
           <Button 
-            onClick={handleDownload} 
-            className="bg-[#06f] hover:bg-[#05d] text-white"
-            disabled={isApiOperationInProgress}
+            onClick={handlePlagiarismCheck}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white"
+            disabled={isApiOperationInProgress || isPlagiarismChecking || plagiatChecksRemaining <= 0}
           >
-            <Download className="mr-2 h-4 w-4" />
-            Last ned
+            {isPlagiarismChecking ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Sjekker...
+              </>
+            ) : (
+              'Sjekk tekst for plagiat'
+            )}
           </Button>
           <Button 
-            onClick={handleCopy} 
-            className="bg-[#06f] hover:bg-[#05d] text-white"
+            onClick={handleDelete} 
+            className="bg-red-600 hover:bg-red-700 text-white"
             disabled={isApiOperationInProgress}
           >
-            <Copy className="mr-2 h-4 w-4" />
-            Kopier
+            <Trash2 className="mr-2 h-4 w-4" />
+            Slett
           </Button>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span>  {/* Wrap button in span to allow tooltip on disabled button */}
+                <span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        className="bg-[#06f] hover:bg-[#05d] text-white"
+                        disabled={isApiOperationInProgress}
+                      >
+                        Eksporter
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={handleDownload}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Last ned
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleCopy}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Kopier
+                      </DropdownMenuItem>
+                      {id && ( // Only render WordPressPostButton if id is not null
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                          <WordPressPostButton 
+                            articleContent={showUpgraded ? upgradedContent : generatedContent}
+                            articleId={id}
+                          />
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Eksporter artikkel
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button 
@@ -451,7 +712,7 @@ export default function ArticlePage() {
                         Gjør bedre
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-80" onCloseAutoFocus={(e) => e.preventDefault()}>
+                    <DropdownMenuContent className="w-80">
                       <DropdownMenuLabel className="text-lg font-bold">Instillinger</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       {Object.entries(upgradeSettings).map(([key, value]) => (
@@ -505,40 +766,6 @@ export default function ArticlePage() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button 
-            onClick={handleDelete} 
-            className="bg-red-600 hover:bg-red-700 text-white"
-            disabled={isApiOperationInProgress}
-            style={{ opacity: isApiOperationInProgress ? 0.5 : 1 }}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Slett
-          </Button>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    onClick={handlePlagiarismCheck}
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                    disabled={isApiOperationInProgress || isPlagiarismChecking || plagiatChecksRemaining <= 0}
-                  >
-                    {isPlagiarismChecking ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sjekker...
-                      </>
-                    ) : (
-                      'Sjekk tekst for plagiat'
-                    )}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {plagiatChecksRemaining <= 0 ? 'Ingen plagiat-sjekk igjen, vennligst oppgrader' : `${plagiatChecksRemaining} plagiat-sjekk igjen`}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </div>
         <div className="mb-4 flex space-x-4">
           <button
@@ -561,23 +788,25 @@ export default function ArticlePage() {
           )}
         </div>
         <div 
-          ref={editableContentRef}
           className="article-content"
-          contentEditable={isEditing}
-          onBlur={isEditing ? handleSaveEdit : undefined}
-          dangerouslySetInnerHTML={{ 
-            __html: isGenerating 
-              ? streamedContent
-              : cleanArticleContent(showUpgraded && hasUpgradedVersion ? upgradedContent : generatedContent)
-          }}
-        />
-
-        {isEditing && (
-          <Button onClick={handleSaveEdit} className="mt-4 bg-green-600 hover:bg-green-700 text-white">
-            Save Changes
-          </Button>
-        )}
-
+          ref={editableContentRef}
+        >
+          {contentBlocks.map((block, index) => (
+            <ContentBlock
+              key={block.id}
+              content={block.content}
+              type={block.type}
+              onAddElement={(type) => handleAddElement(type, index)}
+              onContentChange={(newContent) => {
+                console.log(`ContentBlock ${index} changed:`, newContent);
+                handleContentChange(index, newContent);
+              }}
+              onDeleteBlock={() => handleDeleteBlock(index)}
+              onAddTable={() => handleAddTable(index)}
+              isLoadingTable={loadingTableIndex === index}
+            />
+          ))}
+        </div>
         {webSearchResults && webSearchResults.length > 0 && (
           <div className="mt-8">
             <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Related Sources</h2>
@@ -611,21 +840,23 @@ export default function ArticlePage() {
             <AlertDialogDescription className="text-gray-700 dark:text-gray-300">
               {plagiarismResult && (
                 <div className="space-y-4">
-                  <p>Plagiat funnet: <span className="font-semibold">{plagiarismResult.isPlagiarized ? 'Ja' : 'Nei'}</span></p>
-                  <p>Prosent plagiert: <span className="font-semibold">{plagiarismResult.percentPlagiarized.toFixed(2)}%</span></p>
-                  {plagiarismResult.sources.length > 0 && (
+                  <p>Antall treff: <span className="font-semibold">{plagiarismResult.count}</span></p>
+                  {plagiarismResult.allwordsmatched !== undefined && (
+                    <p>Totalt antall ord matchet: <span className="font-semibold">{plagiarismResult.allwordsmatched}</span></p>
+                  )}
+                  {plagiarismResult.allpercentmatched !== undefined && (
+                    <p>Total prosent matchet: <span className="font-semibold">{plagiarismResult.allpercentmatched.toFixed(2)}%</span></p>
+                  )}
+                  {plagiarismResult.result && plagiarismResult.result.length > 0 && (
                     <div>
                       <p className="font-semibold mb-2">Kilder:</p>
                       <ul className="space-y-2">
-                        {plagiarismResult.sources.map((source, index) => (
+                        {plagiarismResult.result.map((source, index) => (
                           <li key={index} className="bg-gray-100 dark:bg-gray-700 p-2 rounded">
                             <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">{source.title}</a>
-                            {source.matchedWords !== undefined && (
-                              <p>Matchede ord: <span className="font-semibold">{source.matchedWords}</span></p>
-                            )}
-                            {source.percentMatched !== undefined && (
-                              <p>Prosent matchet: <span className="font-semibold">{source.percentMatched.toFixed(2)}%</span></p>
-                            )}
+                            <p>Minimum ord matchet: <span className="font-semibold">{source.minwordsmatched}</span></p>
+                            <p>Prosent matchet: <span className="font-semibold">{source.percentmatched.toFixed(2)}%</span></p>
+                            <p>Tekstutdrag: <span className="italic">{source.textsnippet}</span></p>
                           </li>
                         ))}
                       </ul>
@@ -641,6 +872,15 @@ export default function ArticlePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <TextSelectionToolbar
+        onAICommand={handleAICommand}
+        onCite={handleCite}
+        onFormatChange={handleFormatChange}
+        onStyleChange={handleStyleChange}
+        onAddLink={handleAddLink}
+        onReplaceSelection={handleReplaceSelection}
+        onInsertBelow={handleInsertBelow}
+      />
     </div>
   )
 }

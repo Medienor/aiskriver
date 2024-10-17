@@ -1,72 +1,205 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { supabase } from '@/lib/supabase';
+import { headers } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 
-const stripe = new Stripe(process.env.STRIPE_TEST_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
-export async function POST(req: Request) {
-  const body = await req.text();
-  const sig = req.headers.get('stripe-signature') as string;
+// Initialize Supabase client
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-  console.log('Received Stripe webhook');
+export async function POST(req: NextRequest) {
+  const body = await req.text();
+  const signature = headers().get('stripe-signature') as string;
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_TEST_WEBHOOK_SECRET!);
-    console.log('Webhook verified. Event type:', event.type);
+    event = stripe.webhooks.constructEvent(
+      body,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
   } catch (err) {
-    console.error('Error verifying webhook:', err);
-    return NextResponse.json({ error: 'Webhook Error' }, { status: 400 });
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: `Webhook Error: ${errorMessage}` }, { status: 400 });
   }
 
-  if (event.type === 'checkout.session.completed') {
-    console.log('Processing checkout.session.completed event');
-    const session = event.data.object as Stripe.Checkout.Session;
-    console.log('Session:', JSON.stringify(session, null, 2));
-
-    try {
-      const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-      console.log('Line items:', JSON.stringify(lineItems, null, 2));
-      
-      // Assuming the first item is the subscription
-      const item = lineItems.data[0];
-      if (!item || !item.price) {
-        throw new Error('No line items or price found');
-      }
-      const price = await stripe.prices.retrieve(item.price.id);
-      console.log('Price:', JSON.stringify(price, null, 2));
-      
-      const wordCount = price.metadata.words ? parseInt(price.metadata.words) : 0;
-      console.log('Word count:', wordCount);
-      
-      if (!session.client_reference_id) {
-        throw new Error('No client_reference_id found in session');
-      }
-
-      // Update user's word count in Supabase
-      const { data, error } = await supabase
-        .from('user_subscriptions')
-        .upsert({
-          user_id: session.client_reference_id,
-          word_count: wordCount,
-          subscription_id: session.subscription
-        });
-
-      if (error) {
-        console.error('Error updating user subscription:', error);
-        return NextResponse.json({ error: 'Failed to update user subscription' }, { status: 500 });
-      }
-
-      console.log('User subscription updated successfully:', data);
-      return NextResponse.json({ received: true, updated: true });
-    } catch (error) {
-      console.error('Error processing webhook:', error);
-      return NextResponse.json({ error: 'Failed to process webhook' }, { status: 500 });
-    }
+  switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object as Stripe.Checkout.Session;
+      await handleSuccessfulPurchase(session);
+      break;
+    case 'invoice.paid':
+      const invoice = event.data.object as Stripe.Invoice;
+      await handleRecurringPayment(invoice);
+      break;
   }
 
   return NextResponse.json({ received: true });
+}
+
+async function handleSuccessfulPurchase(session: Stripe.Checkout.Session) {
+  const purchasedWords = parseInt(session.metadata?.words || '0', 10);
+  const purchasedPlagiatChecks = parseInt(session.metadata?.plagiat || '0', 10);
+  const productName = session.metadata?.product_name || 'Unknown Plan';
+  const subscriptionId = session.subscription as string | null;
+  const stripeCustomerId = session.customer as string;
+
+  const userEmail = session.customer_details?.email;
+  if (!userEmail) {
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .select('words_remaining, plagiat_check_remaining, total_plagiat_checks, total_words')
+      .eq('user_id', userEmail)
+      .single();
+
+    let newWordsRemaining, newPlagiatCheckRemaining, newTotalPlagiatChecks, newTotalWords;
+
+    if (error && error.code === 'PGRST116') {
+      newWordsRemaining = purchasedWords;
+      newPlagiatCheckRemaining = purchasedPlagiatChecks;
+      newTotalPlagiatChecks = purchasedPlagiatChecks;
+      newTotalWords = purchasedWords;
+    } else if (error) {
+      throw error;
+    } else {
+      newWordsRemaining = (data.words_remaining || 0) + purchasedWords;
+      newPlagiatCheckRemaining = (data.plagiat_check_remaining || 0) + purchasedPlagiatChecks;
+      newTotalPlagiatChecks = (data.total_plagiat_checks || 0) + purchasedPlagiatChecks;
+      newTotalWords = purchasedWords;
+    }
+
+    const { error: upsertError } = await supabase
+      .from('user_subscriptions')
+      .upsert({ 
+        user_id: userEmail,
+        words_remaining: newWordsRemaining,
+        total_words: newTotalWords,
+        plagiat_check_remaining: newPlagiatCheckRemaining,
+        total_plagiat_checks: newTotalPlagiatChecks,
+        plan: productName,
+        subscription_id: subscriptionId,
+        stripe_customer_id: stripeCustomerId
+      });
+
+    if (upsertError) throw upsertError;
+
+    const { data: userData, error: userError } = await supabase
+      .from('user_subscriptions')
+      .select('referred_by')
+      .eq('user_id', userEmail)
+      .single();
+
+    if (userError) throw userError;
+
+    if (userData?.referred_by) {
+      const commission = calculateCommission(session.amount_total);
+
+      const { error: commissionError } = await supabase
+        .from('affiliate_commissions')
+        .insert({
+          affiliate_code: userData.referred_by,
+          user_email: userEmail,
+          amount: commission,
+          purchase_amount: session.amount_total,
+          status: 'pending'
+        });
+
+      if (commissionError) throw commissionError;
+    }
+
+  } catch (error) {
+    // Error handling could be improved here
+  }
+}
+
+function calculateCommission(amount: number | null): number {
+  return amount ? amount * 0.3 : 0;
+}
+
+async function handleRecurringPayment(invoice: Stripe.Invoice) {
+  const subscriptionId = invoice.subscription as string;
+  const customerId = invoice.customer as string;
+
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!('email' in customer)) {
+      return;
+    }
+    const userEmail = customer.email;
+
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const productId = subscription.items.data[0].price.product as string;
+    const product = await stripe.products.retrieve(productId);
+
+    const purchasedWords = parseInt(product.metadata.words || '0', 10);
+    const purchasedPlagiatChecks = parseInt(product.metadata.plagiat || '0', 10);
+    const productName = product.name || 'Unknown Plan';
+
+    const { error: updateError } = await supabase
+      .from('user_subscriptions')
+      .update({ 
+        words_remaining: purchasedWords,
+        total_words: purchasedWords,
+        plagiat_check_remaining: purchasedPlagiatChecks,
+        total_plagiat_checks: purchasedPlagiatChecks,
+        plan: productName,
+        subscription_id: subscriptionId
+      })
+      .eq('user_id', userEmail);
+
+    if (updateError) throw updateError;
+  } catch (error) {
+    // Error handling could be improved here
+  }
+}
+
+async function handleSubscriptionCancellation(subscription: Stripe.Subscription) {
+  const customerId = subscription.customer as string;
+  const subscriptionEndDate = new Date(subscription.current_period_end * 1000); // Convert UNIX timestamp to Date
+
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!('email' in customer)) {
+      return;
+    }
+    const userEmail = customer.email;
+
+    if (!userEmail) {
+      return;
+    }
+
+    // Update the user's subscription data
+    const { error: updateError } = await supabase
+      .from('user_subscriptions')
+      .update({ 
+        subscription_end_date: subscriptionEndDate.toISOString(),
+        subscription_status: 'canceled'
+      })
+      .eq('user_id', userEmail);
+
+    if (updateError) throw updateError;
+
+    // Schedule a task to remove premium benefits after the subscription ends
+    // This is a placeholder - you'll need to implement a task scheduling system
+    schedulePremiumRemoval(userEmail, subscriptionEndDate);
+
+  } catch (error) {
+    // Error handling could be improved here
+  }
+}
+
+// Update the function signature to accept null
+function schedulePremiumRemoval(userEmail: string | null, endDate: Date) {
+  if (!userEmail) {
+    return;
+  }
+  // Implement your task scheduling logic here
 }

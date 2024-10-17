@@ -91,6 +91,7 @@ export function FolderArticleList({ folderId, articleCount }: FolderArticleListP
                   <Button
                     variant="outline"
                     size="sm"
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
                   >
                     Rediger
                   </Button>
@@ -102,6 +103,7 @@ export function FolderArticleList({ folderId, articleCount }: FolderArticleListP
                         variant="ghost"
                         size="sm"
                         onClick={() => removeArticleFromFolder(article.articleid)}
+                        className="text-gray-700 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400"
                       >
                         <X className="h-4 w-4" />
                       </Button>

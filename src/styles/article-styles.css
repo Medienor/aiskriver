@@ -1,42 +1,395 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
-.article-content {
+/* Increase specificity for all rules */
+div.article-content {
   font-family: 'Inter', sans-serif;
-  color: #000000;
+  color: #1f1d1d;
   line-height: 1.6;
+  width: 700px;
+  outline: none;
+  transition: box-shadow 0.3s ease;
+  padding-left: 2rem;
 }
 
-.article-content h2 {
-    font-family: 'Inter', sans-serif;
-    color: inherit;
-    line-height: 1.6;
-    font-size:22px;
-    font-weight:700;
+div.article-content div.content-chunk {
+  margin-bottom: 1rem;
+  outline: none;
+}
+
+div.article-content div.content-chunk.h1 {
+  font-size: 2em !important;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+  font-weight: bold;
+}
+
+div.article-content div.content-chunk.h2 {
+  font-size: 1.5em !important;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+  font-weight: bold;
+}
+
+div.article-content div.content-chunk.h3 {
+  font-size: 1.17em !important;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  font-weight: bold;
+}
+
+div.article-content div.content-chunk.p {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.content-chunk {
+  margin-bottom: 1rem;
+  outline: none;
+}
+
+div.content-chunk.h1 {
+  font-size: 2em !important;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+  font-weight: bold;
+}
+
+.content-chunk.h2 {
+  font-size: 1.5em;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+  font-weight: bold;
+}
+
+.content-chunk.h3 {
+  font-size: 1.17em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  font-weight: bold;
+}
+
+.content-chunk.p {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.article-content a {
+  font-family: 'Inter', sans-serif;
+  color: #06f;
+  line-height: 1.6;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: text;
+}
+
+.article-content:focus {
+  outline: none;
+}
+
+.article-content b, .article-content strong {
+  font-weight: bold;
+}
+
+.article-content i, .article-content em {
+  font-style: italic;
+}
+
+.article-content u {
+  text-decoration: underline;
+}
+
+.content-block {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.content-block:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.content-block-icons {
+  position: absolute;
+  left: -2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.content-block:hover .content-block-icons {
+  opacity: 1;
+}
+
+.content-block-inner {
+  min-height: 1em; /* Ensure empty blocks have height */
+}
+
+/* Hide control elements when not hovering */
+.article-content:not(:hover) .content-block-icons,
+.article-content:not(:hover) .content-block .absolute.right-0 {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Show control elements on hover */
+.article-content:hover .content-block:hover .content-block-icons,
+.article-content:hover .content-block:hover .absolute.right-0 {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Table styles */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+thead {
+  background-color: #f3f4f6;
+}
+
+th {
+  padding: 0.75rem 1.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+td {
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+td:first-child {
+  font-weight: 500;
+  color: #111827;
+}
+
+@media (max-width: 640px) {
+  table {
+    font-size: 0.75rem;
   }
 
-  .article-content h3 {
-    font-family: 'Inter', sans-serif;
-    color: inherit;
-    line-height: 1.6;
-    font-size:18px;
-    font-weight:700;
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
   }
+}
 
-  .article-content a {
-    font-family: 'Inter', sans-serif;
-    color: #06f;
-    line-height: 1.6;
-    font-size:inherit;
-    font-weight:600;
+@media (max-width: 640px) {
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
   }
+}
 
-/* ... rest of your CSS ... */
+.link-with-tooltip {
+  cursor: pointer;
+  position: relative;
+}
 
-@keyframes skeleton-load {
-  from {
-    left: -150px;
+.link-with-tooltip::after {
+  content: attr(href);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+
+.link-with-tooltip:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.prose h1 {
+  font-size: 2em;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+}
+
+.prose h2 {
+  font-size: 1.5em;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+}
+
+.prose h3 {
+  font-size: 1.17em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.prose p {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.prose ul, .prose ol {
+  padding-left: 2em;
+}
+
+/* Updated styles for headings */
+.article-content .h1 {
+  font-size: 2em;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+  font-weight: bold;
+}
+
+.article-content .h2 {
+  font-size: 1.5em;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+  font-weight: bold;
+}
+
+.article-content .h3 {
+  font-size: 1.17em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  font-weight: bold;
+}
+
+.article-content .p {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+/* Increase specificity for content chunks */
+.article-content .content-chunk {
+  margin-bottom: 1rem;
+  outline: none;
+}
+
+.article-content .content-chunk.h1 {
+  font-size: 2em;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+  font-weight: bold;
+}
+
+.article-content .content-chunk.h2 {
+  font-size: 1.5em;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+  font-weight: bold;
+}
+
+.article-content .content-chunk.h3 {
+  font-size: 1.17em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  font-weight: bold;
+}
+
+.article-content .content-chunk.p {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+/* Add styles for unordered lists */
+.article-content .content-chunk.ul {
+  margin-top: 1em;
+  margin-bottom: 1em;
+  padding-left: 2em;
+  list-style-type: disc;
+}
+
+.article-content .content-chunk.ul li {
+  margin-bottom: 0.5em;
+  display: list-item;
+}
+
+/* Ensure inline styles are applied */
+.article-content .content-chunk strong,
+.article-content .content-chunk b {
+  font-weight: bold;
+}
+
+.article-content .content-chunk em,
+.article-content .content-chunk i {
+  font-style: italic;
+}
+
+/* Styles for unordered lists */
+div.article-content div.content-chunk.ul,
+.article-content .content-chunk.ul {
+  list-style-type: disc !important;
+  padding-left: 2em !important;
+  margin-top: 1em !important;
+  margin-bottom: 1em !important;
+}
+
+div.article-content div.content-chunk.ul li,
+.article-content .content-chunk.ul li {
+  margin-bottom: 0.5em;
+  display: list-item;
+}
+
+/* Styles for list items */
+div.article-content div.content-chunk li,
+.article-content .content-chunk li {
+  margin-bottom: 0.5em;
+  display: list-item;
+}
+
+/* Ensure lists inside content chunks are styled correctly */
+div.article-content div.content-chunk ul,
+.article-content .content-chunk ul {
+  list-style-type: disc;
+  padding-left: 2em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+div.article-content div.content-chunk ul li,
+.article-content .content-chunk ul li {
+  display: list-item;
+  margin-bottom: 0.5em;
+}
+
+/* Style for citation spans */
+span[data-citation] {
+  color: blue;
+}
+
+/* Dark mode style for citation spans */
+@media (prefers-color-scheme: dark) {
+  span[data-citation] {
+    color: #60a5fa; /* Light blue color for dark mode */
   }
-  to {
-    left: 100%;
-  }
+}
+
+/* If you're using a class-based dark mode, you can use this instead or in addition */
+.dark span[data-citation] {
+  color: #60a5fa; /* Light blue color for dark mode */
 }

@@ -1,12 +1,12 @@
 'use client'
 
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
-import { Trash2, Pencil, X, Search, Eye } from 'lucide-react'
+import { Trash2, Pencil, X, Search, Star, Eye, UserIcon, CogIcon, GiftIcon } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,11 +14,13 @@ import { FolderArticleManager } from "@/components/FolderArticleManager"
 import { FolderArticleList } from "@/components/FolderArticleList"
 import { WordCountService } from '../../services/WordCountService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { SitemapManager } from '@/components/SitemapManager';
 
 interface Article {
-  articleid: string;
+  id: string;
   title: string;
   created_at: string;
+  status: string;
 }
 
 interface Subscription {
@@ -74,6 +76,7 @@ export default function Profile() {
   const [newFolderName, setNewFolderName] = useState('')
   const [editingFolderId, setEditingFolderId] = useState<number | null>(null)
   const [snippets, setSnippets] = useState<Snippet[]>([])
+  const pathname = usePathname()
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -104,8 +107,8 @@ export default function Profile() {
     if (!session?.user?.email) return;
 
     const { data, error } = await supabase
-      .from('articles')
-      .select('articleid, title, created_at')
+      .from('content')
+      .select('id, title, created_at, status')
       .eq('user_id', session.user.email)
       .order('created_at', { ascending: false })
 
@@ -120,17 +123,21 @@ export default function Profile() {
     if (!session?.user?.email) return;
 
     try {
-      const wordCountService = WordCountService.getInstance();
-      await wordCountService.initializeUser(session.user.email);
-      
-      const wordsRemaining = wordCountService.getWordsRemaining();
-      const plagiatChecksRemaining = wordCountService.getPlagiatChecksRemaining();
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('words_remaining, total_words, plagiat_check_remaining, total_plagiat_checks, plan')
+        .eq('user_id', session.user.email)
+        .single();
 
-      setSubscription(prev => ({
-        ...prev,
-        wordsRemaining: wordsRemaining,
-        plagiatChecksRemaining: plagiatChecksRemaining
-      }));
+      if (error) throw error;
+
+      setSubscription({
+        plan: data.plan || 'Free',
+        wordsTotal: data.total_words || 5000,
+        wordsRemaining: data.words_remaining || 5000,
+        plagiatChecksTotal: data.total_plagiat_checks || 10,
+        plagiatChecksRemaining: data.plagiat_check_remaining || 10
+      });
     } catch (error) {
       console.error('Error fetching subscription:', error);
     }
@@ -189,6 +196,10 @@ export default function Profile() {
     router.push('/pricing')
   };
 
+  const handleOpenBillingPortal = () => {
+    window.open('https://billing.stripe.com/p/login/28o00qaMC5FafdebII', '_blank');
+  };
+
   const handleDeleteArticle = async (articleId: string) => {
     if (!session?.user?.email) return;
 
@@ -197,15 +208,15 @@ export default function Profile() {
 
     try {
       const { error } = await supabase
-        .from('articles')
+        .from('content')
         .delete()
-        .eq('articleid', articleId)
+        .eq('id', articleId)
         .eq('user_id', session.user.email);
 
       if (error) throw error;
 
       // Remove the deleted article from the state
-      setArticles(prevArticles => prevArticles.filter(article => article.articleid !== articleId));
+      setArticles(prevArticles => prevArticles.filter(article => article.id !== articleId));
     } catch (err) {
       console.error('Error deleting article:', err);
       alert('Failed to delete article. Please try again.');
@@ -217,7 +228,7 @@ export default function Profile() {
 
     try {
       const { error } = await supabase
-        .from('articles')
+        .from('content')
         .delete()
         .eq('user_id', session.user.email);
 
@@ -325,9 +336,56 @@ export default function Profile() {
   const isOutOfPlagiatChecks = subscription.plagiatChecksRemaining <= 0;
 
   return (
-    <div className="bg-white dark:bg-gray-900 min-h-screen p-8">
+    <div className="bg-white dark:bg-gray-900 min-h-screen p-4 sm:p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Profil</h1>
+        
+        <nav className="flex justify-start mb-8 border-b border-gray-200 dark:border-gray-700">
+          <Link 
+            href="/profile" 
+            className={`flex items-center mr-6 text-base pb-2 border-b-2 ${
+              pathname === '/profile'
+                ? 'text-[#06f] border-[#06f]'
+                : 'text-gray-600 dark:text-gray-400 border-transparent'
+            } hover:text-[#06f] transition-colors duration-200`}
+          >
+            <UserIcon className={`w-4 h-4 mr-2 ${pathname === '/profile' ? 'text-[#06f]' : ''}`} />
+            <span>Profil</span>
+          </Link>
+          <Link 
+            href="/profile/integration" 
+            className={`flex items-center mr-6 text-base pb-2 border-b-2 ${
+              pathname === '/profile/integration'
+                ? 'text-[#06f] border-[#06f]'
+                : 'text-gray-600 dark:text-gray-400 border-transparent'
+            } hover:text-[#06f] transition-colors duration-200`}
+          >
+            <CogIcon className={`w-4 h-4 mr-2 ${pathname === '/profile/integration' ? 'text-[#06f]' : ''}`} />
+            <span>Integration</span>
+          </Link>
+          <Link 
+            href="/profile/gaver" 
+            className={`flex items-center mr-6 text-base pb-2 border-b-2 ${
+              pathname === '/profile/gaver'
+                ? 'text-[#06f] border-[#06f]'
+                : 'text-gray-600 dark:text-gray-400 border-transparent'
+            } hover:text-[#06f] transition-colors duration-200`}
+          >
+            <GiftIcon className={`w-4 h-4 mr-2 ${pathname === '/profile/gaver' ? 'text-[#06f]' : ''}`} />
+            <span>Få gaver</span>
+          </Link>
+          <Link 
+            href="/profile/affiliate" 
+            className={`flex items-center mr-6 text-base pb-2 border-b-2 ${
+              pathname === '/profile/affiliate'
+                ? 'text-[#06f] border-[#06f]'
+                : 'text-gray-600 dark:text-gray-400 border-transparent'
+            } hover:text-[#06f] transition-colors duration-200`}
+          >
+            <Star className={`w-4 h-4 mr-2 ${pathname === '/profile/affiliate' ? 'text-[#06f]' : ''}`} />
+            <span>Affiliate</span>
+          </Link>
+        </nav>
         
         {/* User Info */}
         <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
@@ -351,8 +409,8 @@ export default function Profile() {
                   ></div>
                 </div>
                 <div className="flex justify-between mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span>{subscription.wordsTotal - subscription.wordsRemaining} brukt</span>
-                  <span>{subscription.wordsRemaining} gjenstår</span>
+                  <span>{subscription.wordsRemaining} ord igjen</span>
+                  <span>{subscription.wordsTotal} ord i din pakke</span>
                 </div>
               </div>
               
@@ -365,22 +423,34 @@ export default function Profile() {
                   ></div>
                 </div>
                 <div className="flex justify-between mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span>{subscription.plagiatChecksTotal - subscription.plagiatChecksRemaining} brukt</span>
-                  <span>{subscription.plagiatChecksRemaining} gjenstår</span>
+                  <span>{subscription.plagiatChecksRemaining} plagiat-sjekk igjen</span>
+                  <span>{subscription.plagiatChecksTotal} plagiat-sjekk inkludert</span>
                 </div>
               </div>
               
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">Totalt ord: {subscription.wordsTotal}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Plan: {subscription.plan}</p>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <div className="mb-4 sm:mb-0">
+                  <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    Din pakke inkluderer {subscription.wordsTotal} ord
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Pakke: {subscription.plan}
+                  </p>
                 </div>
-                <Button 
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
-                  onClick={handleUpgrade}
-                >
-                  Oppgrader Abonnement
-                </Button>
+                <div className="w-full sm:w-auto flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                  <Button 
+                    className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white"
+                    onClick={handleUpgrade}
+                  >
+                    Oppgrader Abonnement
+                  </Button>
+                  <Button 
+                    className="w-full sm:w-auto bg-gray-500 hover:bg-gray-600 text-white"
+                    onClick={handleOpenBillingPortal}
+                  >
+                    Fakturaer og betalinger
+                  </Button>
+                </div>
               </div>
               {(isOutOfWords || isOutOfPlagiatChecks) && (
                 <p className="text-red-500 font-semibold">
@@ -419,9 +489,9 @@ export default function Profile() {
         {articles.length > 0 ? (
           <ul className="space-y-4">
             {articles.map((article) => (
-              <li key={article.articleid} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex justify-between items-center">
+              <li key={article.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex justify-between items-center">
                 <div>
-                  <Link href={`/article/${article.articleid}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                  <Link href={`/write/${article.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                     <h3 className="text-lg font-semibold">{article.title}</h3>
                   </Link>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -429,7 +499,7 @@ export default function Profile() {
                   </p>
                 </div>
                 <Button
-                  onClick={() => handleDeleteArticle(article.articleid)}
+                  onClick={() => handleDeleteArticle(article.id)}
                   variant="outline"
                   size="sm"
                   className="bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
@@ -463,7 +533,10 @@ export default function Profile() {
               {projectFolders.map((folder) => (
                 <li key={folder.id} className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-2 rounded">
                   <div className="flex items-center">
-                    <FolderArticleList folderId={folder.id} articleCount={folder.article_count} />
+                    <FolderArticleList 
+                      folderId={folder.id} 
+                      articleCount={folder.article_count}
+                    />
                     <span className="ml-2 text-gray-900 dark:text-white">{folder.name}</span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -472,14 +545,6 @@ export default function Profile() {
                       userEmail={session.user?.email || ''} 
                       onArticleAdded={fetchProjectFolders}
                     />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingFolderId(folder.id)}
-                      className="text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -546,6 +611,10 @@ export default function Profile() {
           ) : (
             <p className="text-gray-500 dark:text-gray-400">Du har ingen lagrede kapsler ennå.</p>
           )}
+        </div>
+        {/* Manage Sitemaps */}
+        <div className="mt-8">
+          <SitemapManager />
         </div>
       </div>
     </div>

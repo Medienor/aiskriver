@@ -185,7 +185,7 @@ export default function Matteloser() {
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder="Skriv inn ditt matteproblem eller lim inn et bilde..."
-              className="w-full p-2 pr-10 border rounded resize-none text-base"
+              className="w-full p-2 pr-10 border rounded resize-none text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               rows={3}
             />
             <button

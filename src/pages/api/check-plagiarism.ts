@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       o: 'csearch',
       e: 'UTF-8',
       t: strippedText,
-      c: '1',
+      c: '3',
       f: 'json',
     });
 
@@ -54,13 +54,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const result = {
-      isPlagiarized: data.count > 0,
-      percentPlagiarized: data.count > 0 ? (data.result[0].plagpercent || 0) : 0,
-      sources: data.result ? data.result.map((source: any) => ({
+      count: data.count || 0,
+      allwordsmatched: data.allwordsmatched,
+      allpercentmatched: data.allpercentmatched,
+      result: data.result ? data.result.map((source: any) => ({
         url: source.url,
         title: source.title,
-        matchedWords: source.wordsmatched,
-        percentMatched: source.plagpercent,
+        minwordsmatched: source.minwordsmatched,
+        percentmatched: source.percentmatched,
+        textsnippet: source.textsnippet,
       })) : [],
     };
 

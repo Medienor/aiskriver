@@ -91,6 +91,7 @@ export default function AIChat() {
   const [showTopSearchBox, setShowTopSearchBox] = useState(true);
   const [showPopup, setShowPopup] = useState(false);
   const [disabledSaveButtons, setDisabledSaveButtons] = useState<string[]>([]);
+  const [streamingSummary, setStreamingSummary] = useState('');
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +99,7 @@ export default function AIChat() {
 
     setIsSearching(true);
     setShowLoadingEffect(true);
+    setStreamingSummary(''); // Reset the streaming summary
 
     try {
       const response = await performQuickWebSearch(searchQuery);
@@ -111,49 +113,40 @@ export default function AIChat() {
 
       setSearchResultSets(prev => [...prev, newResultSet]);
       
-      // Handle streaming of finalSummary
-      const reader = response.finalSummaryStream.getReader();
-      const decoder = new TextDecoder();
-      
-      setIsStreaming(true);
-      let summary = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(5).trim();
-            if (data === '[DONE]') break;
-            try {
-              const parsedData = JSON.parse(data);
-              if (parsedData.content) {
-                summary += parsedData.content;
-                setSearchResultSets(prev => {
-                  const newSets = [...prev];
-                  newSets[newSets.length - 1].summary = summary;
-                  return newSets;
-                });
+      // Start streaming the summary
+      if (response.finalSummaryStream) {
+        const reader = response.finalSummaryStream.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          let newContent = '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(5));
+                if (data.content) {
+                  newContent += data.content;
+                }
+              } catch (error) {
+                console.error('Error parsing JSON:', error);
               }
-            } catch (error) {
-              console.error('Error parsing JSON:', error);
             }
           }
+          setStreamingSummary(prev => prev + newContent);
         }
       }
     } catch (error) {
       console.error('Error performing search:', error);
     } finally {
       setIsSearching(false);
-      setIsStreaming(false);
       setShowLoadingEffect(false);
       setSearchQuery('');
       if (searchResultSets.length === 0) {
         setShowTopSearchBox(false);
-      }
-      if (summaryRef.current) {
-        summaryRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }
   };
@@ -262,9 +255,8 @@ export default function AIChat() {
               ))}
             </motion.div>
 
-            {resultSet.summary && (
+            {streamingSummary && (
               <motion.div 
-                ref={setIndex === searchResultSets.length - 1 ? summaryRef : null}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg mb-6"
@@ -274,7 +266,7 @@ export default function AIChat() {
                   className="text-gray-700 dark:text-gray-300 max-w-none"
                   dangerouslySetInnerHTML={{ 
                     __html: applyStylesToContent(
-                      resultSet.summary, 
+                      streamingSummary, 
                       document.documentElement.classList.contains('dark')
                     ) 
                   }}

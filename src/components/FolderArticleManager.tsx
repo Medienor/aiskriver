@@ -93,12 +93,13 @@ export function FolderArticleManager({ folderId, userEmail, onArticleAdded }: Fo
           <DialogTitle className="text-gray-900 dark:text-white">Legg til artikler i mappen</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="flex items-center gap-4">
-            <Search className="h-4 w-4 opacity-50" />
+          <div className="flex items-center gap-4 bg-gray-100 dark:bg-gray-700 rounded-md p-2">
+            <Search className="h-4 w-4 text-gray-500 dark:text-gray-300" />
             <Input
               placeholder="Søk etter artikler..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
           <ul className="space-y-2 max-h-[300px] overflow-y-auto">

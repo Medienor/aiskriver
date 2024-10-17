@@ -1,7 +1,7 @@
 export interface FormData {
   title: string;
   articleType: string;
-  projectId: string;  // Make sure this is included
+  projectId: string | null;  // Make sure this is included
   keywords: string;
   description: string;
   tone: string;
@@ -13,4 +13,7 @@ export interface FormData {
   enableWebSearch: boolean;
   numberOfSources: number;
   selectedSnippet: string | null;  // Add this line
+  selectedSitemap: string | null;
+  useLocalLinks: boolean;  // Add this line
+  sitemapUrls?: string[]; // Add this new field
 }

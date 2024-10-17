@@ -1,13 +1,15 @@
 import axios from 'axios';
 
 export interface CopyscapeResult {
-  isPlagiarized: boolean;
-  percentPlagiarized: number;
-  sources: Array<{
+  count: number;
+  allwordsmatched?: number;
+  allpercentmatched?: number;
+  result?: Array<{
     url: string;
     title: string;
-    matchedWords: number;
-    percentMatched: number;
+    minwordsmatched: number;
+    percentmatched: number;
+    textsnippet: string;
   }>;
 }
 

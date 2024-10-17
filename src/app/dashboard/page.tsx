@@ -11,10 +11,6 @@ import type { FormData } from '../../types/FormData'
 import { generateArticleWithWebSearch } from '../../services/WebSearchArticleService';
 import { WordCountService } from '../../services/WordCountService';
 
-// Remove the unused import
-// import { motion } from 'framer-motion'
-// import 'react-circular-progressbar/dist/styles.css'
-
 export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -22,6 +18,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [wordsRemaining, setWordsRemaining] = useState<number>(0)
   const [totalWords, setTotalWords] = useState<number>(0)
+  const [sitemaps, setSitemaps] = useState<{ id: number; url: string }[]>([])
 
   const fetchWordCount = async () => {
     if (!session?.user?.email) return;
@@ -42,11 +39,29 @@ export default function Home() {
     }
   }
 
+  const fetchSitemaps = async () => {
+    if (!session?.user?.email) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('sitemaps')
+        .select('id, url')
+        .eq('user_email', session.user.email);
+
+      if (error) throw error;
+
+      setSitemaps(data || []);
+    } catch (error) {
+      console.error('Error fetching sitemaps:', error);
+    }
+  }
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin")
     } else if (status === "authenticated" && session?.user?.email) {
       fetchWordCount()
+      fetchSitemaps()
     }
   }, [status, router, session])
 
@@ -135,6 +150,7 @@ export default function Home() {
               wordsRemaining={wordsRemaining} 
               totalWords={totalWords} 
               userEmail={session?.user?.email || ''}
+              sitemaps={sitemaps}
             />
             <p className="text-center mt-2 text-sm text-gray-600 dark:text-gray-400">
               {wordsRemaining} / {totalWords} ord igjen

@@ -1,0 +1,99 @@
+.quill {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+}
+.ql-container {
+  flex: 1;
+  overflow: visible;
+  border: none !important;
+  font-size: 16px;
+}
+.ql-editor {
+  min-height: calc(100vh - 200px);
+  max-height: none;
+  overflow: visible;
+}
+.ql-toolbar {
+  display: none !important;
+}
+.ql-snow .ql-editor h2 {
+  font-weight: 600;
+  font-family: '__Inter_36bd41', sans-serif !important;
+  font-size: 1.5em;
+  line-height: 4rem !important;
+}
+.ql-snow .ql-editor h3 {
+  font-weight: 600;
+  margin-bottom: 0.5em;
+  margin-top: 1.25em;
+  font-family: '__Inter_36bd41', sans-serif !important;
+  font-size: 1em;
+}
+.ql-snow .ql-editor h1 {
+  font-weight: 600;
+  margin-bottom: 0.5em;
+  margin-top: 1em;
+  font-family: '__Inter_36bd41', sans-serif !important;
+}
+.ql-editor p {
+  margin-bottom: 1.25em;
+  font-family: '__Inter_36bd41', sans-serif !important;
+}
+.ql-editor > * {
+  position: relative;
+}
+.article-content p {
+  font-size: 0.95em !important;
+}
+.ql-editor ::selection {
+  background-color: #E0E0E0;
+  color: inherit;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.inline-loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
+  margin-left: 5px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.blur-protected {
+  filter: blur(4px);
+  user-select: none;
+  pointer-events: none;
+}
+
+.ql-editor .prerender-h2 {
+  color: #A0A0A0 !important;
+}
+
+/* Dark mode style for citation spans within article-content */
+.dark .article-content span[data-citation] {
+  color: #60a5fa; /* Light blue color for dark mode */
+}

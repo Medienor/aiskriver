@@ -1,6 +1,6 @@
-import Exa from 'exa-js';
+import Exa from "exa-js";
 
-const exa = new Exa(process.env.NEXT_PUBLIC_EXA_API_KEY);
+const exa = new Exa(process.env.NEXT_PUBLIC_EXA_API_KEY || '');
 
 const cache: { [key: string]: any } = {};
 
@@ -56,7 +56,7 @@ export async function performQuickWebSearch(query: string) {
   try {
     console.log('Performing quick Exa search with query:', searchQuery);
 
-    const response = await exa.searchAndContents(searchQuery, {
+    const searchOptions = {
       type: "auto",
       useAutoprompt: true,
       numResults: 10,
@@ -66,12 +66,39 @@ export async function performQuickWebSearch(query: string) {
       },
       summary: true,
       metadata: true
+    };
+
+    console.log('Exa API request options:', JSON.stringify(searchOptions, null, 2));
+
+    const response = await fetch('/api/exa-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: searchQuery,
+        options: searchOptions
+      }),
     });
 
-    console.log('Quick Exa search results:', JSON.stringify(response, null, 2));
-    console.log("Autoprompt:", response.autopromptString);
+    const result = await response.json();
 
-    if (response.results.length === 0) {
+    console.log('Full Exa API response:', JSON.stringify(result, null, 2));
+    console.log('Resolved search type:', result.resolvedSearchType);
+    console.log('Autoprompt:', result.autopromptString);
+
+    // Log details for each result
+    result.results.forEach((result: any, index: number) => {
+      console.log(`Result ${index + 1}:`);
+      console.log('Title:', result.title);
+      console.log('URL:', result.url);
+      console.log('Text:', result.text);
+      console.log('Highlights:', result.highlights);
+      console.log('Summary:', result.summary);
+      console.log('---');
+    });
+
+    if (result.results.length === 0) {
       console.log("No results found.");
       return { finalSummaryStream: new ReadableStream(), results: [] };
     }
@@ -81,7 +108,7 @@ export async function performQuickWebSearch(query: string) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ results: response.results, searchQuery: query }),
+      body: JSON.stringify({ results: result.results, searchQuery: query }),
     });
 
     // Return the response body as a ReadableStream
@@ -91,9 +118,9 @@ export async function performQuickWebSearch(query: string) {
       throw new Error('No response body');
     }
 
-    const sortedResults = response.results.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const sortedResults = result.results.sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0));
 
-    const formattedResults = sortedResults.map((result) => ({
+    const formattedResults = sortedResults.map((result: any) => ({
       title: result.title || 'No title',
       url: result.url,
       snippet: result.text?.substring(0, 200) || '', // Keep a short snippet for preview

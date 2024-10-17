@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // First, get the current click count
+    // First, get the current data
     const { data: currentData, error: fetchError } = await supabase
       .from('affiliate_stats')
       .select('total_clicks, user_email')
@@ -23,18 +23,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Affiliate code not found' })
     }
 
-    // Increment the click count
-    const { error } = await supabase
-      .from('affiliate_stats')
-      .update({ total_clicks: currentData.total_clicks + 1 })
-      .eq('affiliate_code', ref)
+    // Increment the click count and record the activity in a single transaction
+    const { error } = await supabase.rpc('increment_affiliate_click', {
+      p_affiliate_code: ref,
+      p_user_email: currentData.user_email
+    })
 
     if (error) throw error
-
-    // Record the click activity
-    await supabase
-      .from('affiliate_activity')
-      .insert({ user_email: currentData.user_email, action_type: 'click' })
 
     // Set the affiliate cookie
     setAffiliateCookie(ref as string)

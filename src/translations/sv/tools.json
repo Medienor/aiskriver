@@ -1,0 +1,73 @@
+{
+    "youtubeScriptGenerator": {
+      "title": "AI YouTube-manusgenererare",
+      "description": "Vår AI YouTube-manusgenererare skapar engagerande och strukturerade manus för dina YouTube-videor på sekunder. Detta verktyg sparar dig tid och kreativ energi genom att generera anpassade manus baserade på dina idéer och preferenser.",
+      "customFields": {
+        "originalText": {
+          "label": "Beskriv ditt projekt",
+          "placeholder": "Beskriv ditt YouTube-projekt i 1-2 meningar"
+        }
+      },
+      "whatIs": {
+        "title": "Vad är en AI YouTube-manusgenererare?",
+        "description": "En AI YouTube-manusgenererare är ett avancerat verktyg som använder artificiell intelligens för att producera välstrukturerade och engagerande manus för YouTube-videor. Detta verktyg kan hjälpa dig att skapa innehållsrika och fängslande manus snabbt och effektivt, oavsett om du gör utbildningsvideor, underhållning eller produktrecensioner."
+      },
+      "howItWorks": {
+        "title": "Så här fungerar det:",
+        "step1": "Ange videotema",
+        "step2": "Tryck på \"Generera\"",
+        "step3": "Få ditt YouTube-manus!"
+      },
+      "comparisonTitle": "Innhold.AI eller ChatGPT?",
+      "comparisonDescription": "Här är några anledningar till varför Innhold.AI är ett bättre val än ChatGPT",
+      "comparisonFeatures": {
+        "tailored": "Skräddarsydd för innehållsproduktion",
+        "languageSupport": "Svenskt språkstöd",
+        "seoOptimization": "Integrerad SEO-optimering",
+        "industryTemplates": "Branschspecifika mallar"
+      },
+      "benefits": {
+        "title": "AI YouTube-manusgenererare som skapar engagerande innehåll",
+        "description": "Vår AI YouTube-manusgenererare är inte vilken manusgenererare som helst. Det är en sofistikerad AI-driven lösning designad för att leverera kreativa, relevanta och engagerande manus som överensstämmer med dina specifika idéer och målgrupp. Med vår generator kan du:",
+        "list": [
+          "Generera strukturerade manus baserade på ditt valda tema och målgrupp.",
+          "Få flera manusalternativ på sekunder, så att du kan välja det som passar bäst för din video.",
+          "Spara tid och kreativ energi genom att låta AI:n göra det grundläggande arbetet åt dig."
+        ]
+      },
+      "unique": {
+        "title": "Unik AI YouTube-manusgenererare",
+        "description": "Generera unika YouTube-manus med ett verktyg som förstår dina idéer och skapar originellt, engagerande innehåll! Vår AI YouTube-manusgenererare är en lösning du kan lita på för att producera manus av hög kvalitet som sticker ut i mängden av YouTube-innehåll.",
+        "cta": "Skapa ditt unika YouTube-manus nu"
+      },
+      "faq": {
+        "title": "Vanliga frågor",
+        "questions": [
+          {
+            "question": "Vilka typer av YouTube-manus kan AI-generatorn skapa?",
+            "answer": "Vår AI YouTube-manusgenererare är mångsidig och kan generera ett brett utbud av manus. Detta inkluderar manus för utbildningsvideor, underhållning, produktrecensioner, vloggar och mycket mer. Den kan skapa manus som är informativa, underhållande eller övertygande, beroende på dina preferenser och målgrupp."
+          },
+          {
+            "question": "Hur hanterar AI YouTube-manusgenereraren din integritet?",
+            "answer": "Vår generator är designad med integritet i åtanke. Den lagrar inte personliga data och delar inte information med tredje part. Alla genererade manus är endast för din personliga användning."
+          },
+          {
+            "question": "Kan AI YouTube-manusgenereraren skapa manus på olika språk?",
+            "answer": "Ja, vår AI YouTube-manusgenererare kan skapa manus på flera språk, inklusive svenska. Du kan specificera vilket språk du önskar, och generatorn anpassar sig därefter."
+          },
+          {
+            "question": "Behöver jag några särskilda färdigheter för att använda denna AI YouTube-manusgenererare?",
+            "answer": "Nej, du behöver inga särskilda färdigheter för att använda vår generator. Det användarvänliga gränssnittet gör det enkelt för alla att generera kreativa och engagerande YouTube-manus."
+          },
+          {
+            "question": "Kan AI YouTube-manusgenereraren hjälpa mig att optimera mitt innehåll för SEO?",
+            "answer": "Ja, vår generator kan inkludera relevanta nyckelord och fraser i manuset som kan hjälpa till att optimera din video för sökmotorer. Detta kan potentiellt öka synligheten och räckvidden för dina YouTube-videor."
+          },
+          {
+            "question": "Hur många manus kan jag generera åt gången?",
+            "answer": "Du kan generera flera manus åt gången. Vår generator är designad för att ge dig en rad alternativ baserade på dina preferenser, så att du kan välja det som passar bäst för din video."
+          }
+        ]
+      }
+    }
+  }

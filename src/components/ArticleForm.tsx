@@ -30,11 +30,17 @@ interface Snippet {
   snippet: string;
 }
 
+interface Sitemap {
+  id: number;
+  url: string;
+}
+
 interface ArticleFormProps {
   onSubmit: (formData: FormData) => void;
   wordsRemaining: number;
   totalWords: number;
   userEmail: string;  // Add this to fetch user-specific folders
+  sitemaps: Sitemap[];
 }
 
 interface CustomSelectProps {
@@ -43,14 +49,15 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder: string;
+  disabled?: boolean;
 }
 
-const CustomSelect: React.FC<CustomSelectProps> = ({ label, value, onChange, options, placeholder }) => (
+const CustomSelect: React.FC<CustomSelectProps> = ({ label, value, onChange, options, placeholder, disabled }) => (
   <div className="mb-4">
     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
     <div className="relative">
-      <Select onValueChange={onChange} value={value} required>
-        <SelectTrigger className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-3 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 dark:text-gray-100">
+      <Select onValueChange={onChange} value={value} disabled={disabled}>
+        <SelectTrigger className={`w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-3 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 dark:text-gray-100 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
           <SelectValue placeholder={placeholder} />
           <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
         </SelectTrigger>
@@ -70,7 +77,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ label, value, onChange, opt
   </div>
 )
 
-export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, userEmail }: ArticleFormProps) {
+export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, userEmail, sitemaps = [] }: ArticleFormProps) {
   const [title, setTitle] = useState('')
   const [articleType, setArticleType] = useState('')
   const [keywords, setKeywords] = useState('')
@@ -84,9 +91,13 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
   const [enableWebSearch, setEnableWebSearch] = useState(false)
   const [numberOfSources, setNumberOfSources] = useState<number>(1)
   const [projectFolders, setProjectFolders] = useState<ProjectFolder[]>([])
-  const [selectedProject, setSelectedProject] = useState('')
+  const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [selectedSnippet, setSelectedSnippet] = useState<string | null>(null);
+  const [selectedSitemap, setSelectedSitemap] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [useLocalLinks, setUseLocalLinks] = useState(false);
 
   useEffect(() => {
     fetchProjectFolders()
@@ -122,28 +133,59 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const formData: FormData = { 
-      title, 
-      articleType, 
-      projectId: selectedProject, // Include the selected project ID
-      keywords, 
-      description, 
-      tone, 
-      length, 
-      language, 
-      includeImages, 
-      includeVideos, 
-      includeSources, 
-      enableWebSearch, 
-      numberOfSources, 
-      selectedSnippet: selectedSnippet 
-        ? snippets.find(s => s.snippet_id === selectedSnippet)?.snippet || null
-        : null,
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      let sitemapUrls = null;
+      if (useLocalLinks && selectedSitemap && selectedSitemap !== 'no_sitemaps') {
+        // Fetch the URLs for the selected sitemap
+        const { data, error } = await supabase
+          .from('sitemaps')
+          .select('urls')
+          .eq('url', selectedSitemap)
+          .eq('user_email', userEmail)  // Add this line to filter by user email
+          .single();
+
+        if (error) {
+          console.error('Error fetching sitemap URLs:', error);
+          throw new Error('Failed to fetch sitemap URLs');
+        }
+        sitemapUrls = data?.urls || null;
+      }
+
+      const formData: FormData = { 
+        title, 
+        articleType, 
+        projectId: selectedProject,  // This can be a string or null
+        keywords, 
+        description, 
+        tone, 
+        length, 
+        language, 
+        includeImages, 
+        includeVideos, 
+        includeSources, 
+        enableWebSearch, 
+        numberOfSources, 
+        selectedSnippet: selectedSnippet 
+          ? snippets.find(s => s.snippet_id === selectedSnippet)?.snippet || null
+          : null,
+        selectedSitemap: useLocalLinks ? (selectedSitemap === 'no_sitemaps' ? null : selectedSitemap) : null,
+        useLocalLinks,
+        sitemapUrls,
+      }
+      await onSubmit(formData);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setError('An error occurred while submitting the form. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    onSubmit(formData)
-  }
+  };
 
   const handleIncludeSourcesChange = (checked: boolean) => {
     setIncludeSources(checked)
@@ -234,7 +276,7 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
       />
       <CustomSelect
         label="Prosjekt"
-        value={selectedProject}
+        value={selectedProject || ''}
         onChange={setSelectedProject}
         options={projectFolders.map(folder => ({ value: folder.id.toString(), label: folder.name }))}
         placeholder="Velg prosjekt (valgfritt)"
@@ -353,21 +395,49 @@ export default function ArticleForm({ onSubmit, wordsRemaining, totalWords, user
           </SelectContent>
         </Select>
       </div>
+      <div className="flex items-center space-x-2 mb-4">
+        <Switch
+          id="use-local-links"
+          checked={useLocalLinks}
+          onCheckedChange={setUseLocalLinks}
+        />
+        <Label htmlFor="use-local-links" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Bruk lokale lenker
+        </Label>
+      </div>
+      <CustomSelect
+        label="Sitemap"
+        value={selectedSitemap || ''}
+        onChange={setSelectedSitemap}
+        options={sitemaps && sitemaps.length > 0 
+          ? sitemaps.map(sitemap => ({ value: sitemap.url, label: sitemap.url }))
+          : [{ value: 'no_sitemaps', label: 'Ingen sitemaps' }]
+        }
+        placeholder="Velg sitemap"
+        disabled={!useLocalLinks}
+      />
       <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
         Gjenværende ord: {wordsRemaining} / Totalt: {totalWords}
       </p>
       <Button 
         type="submit" 
         className="w-full h-[60px] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition duration-300 ease-in-out flex items-center justify-center space-x-2"
-        disabled={isSubmitDisabled}
+        disabled={isSubmitDisabled || isLoading}
       >
-        <WandIcon size={24} />
-        <span>Opprett Artikkel</span>
-        <WandIcon size={24} />
+        {isLoading ? (
+          <span>Laster...</span>
+        ) : (
+          <>
+            <WandIcon size={24} />
+            <span>Opprett Artikkel</span>
+            <WandIcon size={24} />
+          </>
+        )}
       </Button>
       {isSubmitDisabled && (
         <p className="text-red-500 text-sm">Ikke nok ord igjen. Vennligst oppgrader pakken din eller kjøp flere ord.</p>
       )}
+      {error && <p className="text-red-500 text-sm">{error}</p>}
     </form>
   )
 }
