@@ -570,6 +570,13 @@ export default function PlagiatSjekker() {
     }
   };
 
+  // Add this function if it doesn't exist already
+  const handleSwitchToRegister = () => {
+    setShowLoginPopup(false);
+    // If you have a register popup, you might want to show it here
+    // setShowRegisterPopup(true);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
       <div className="max-w-[80rem] mx-auto px-4 flex flex-col flex-grow">
@@ -883,7 +890,13 @@ export default function PlagiatSjekker() {
         
         <Footer />
       </div>
-      {showLoginPopup && <LoginPopup onClose={() => setShowLoginPopup(false)} />}
+      {showLoginPopup && (
+        <LoginPopup 
+          onClose={() => setShowLoginPopup(false)} 
+          onSwitchToRegister={handleSwitchToRegister}
+          isVisible={showLoginPopup}
+        />
+      )}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
         <DialogContent className="bg-white dark:bg-gray-800 shadow-xl">
           <DialogHeader>

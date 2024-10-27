@@ -24,19 +24,47 @@ interface WriterNavProps {
   addToArticle: (content: string) => void;
   onTitleChange: (newTitle: string) => void;
   isSidePanelMinimized?: boolean;
+  onLanguageChange: (language: string) => void;
+  onVipPromptChange: (prompt: string) => void;
+  initialVipPrompt: string;
+  initialLanguage: string;
+  initialCitationStyle: string;
+  onCitationStyleChange: (style: string) => void;
+  initialAutocomplete: boolean;
+  initialAutocompleteButton: boolean;
+  initialExternalCiting: boolean;
+  initialLocalCiting: boolean;
+  onAutocompleteChange: (value: boolean) => void;
+  onAutocompleteButtonChange: (value: boolean) => void;
+  onExternalCitingChange: (value: boolean) => void;
+  onLocalCitingChange: (value: boolean) => void;
 }
 
-export default function WriterNav({ 
-  title, 
+export default function WriterNav({
+  title,
   isGenerating,
-  articleId, 
+  articleId,
   contentManager,
-  onCopy, 
-  getContent, 
-  onAIChatToggle, 
+  onCopy,
+  getContent,
+  onAIChatToggle,
   addToArticle,
+  onLanguageChange,
+  initialCitationStyle,
+  onCitationStyleChange,
+  initialLanguage,
   onTitleChange,
-  isSidePanelMinimized = false // Provide a default value
+  onVipPromptChange,
+  initialVipPrompt,
+  isSidePanelMinimized = false, // Provide a default value
+  initialAutocomplete,
+  initialAutocompleteButton,
+  initialExternalCiting,
+  initialLocalCiting,
+  onAutocompleteChange,
+  onAutocompleteButtonChange,
+  onExternalCitingChange,
+  onLocalCitingChange,
 }: WriterNavProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -52,6 +80,9 @@ export default function WriterNav({
   const { setTheme, theme } = useTheme()
   const router = useRouter()
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const aiChatButtonRef = useRef<HTMLButtonElement>(null);
+  const libraryButtonRef = useRef<HTMLButtonElement>(null);
+  
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -94,9 +125,47 @@ export default function WriterNav({
     }
   };
 
+  const handleLanguageChange = (newLanguage: string) => {
+    console.log('Language change received in WriterNav:', newLanguage);
+    onLanguageChange(newLanguage);
+  };
+
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")
   }
+
+  const truncateTitle = (title: string, maxLength: number = 30) => {
+    if (title.length <= maxLength) return title;
+    return title.slice(0, maxLength) + '...';
+  };
+
+  useEffect(() => {
+    const handleAIChatToggle = () => {
+      aiChatButtonRef.current?.click();
+    };
+
+    const handleLibraryToggle = () => {
+      libraryButtonRef.current?.click();
+    };
+
+    window.addEventListener('simulateAIChatClick', handleAIChatToggle);
+    window.addEventListener('simulateLibraryClick', handleLibraryToggle);
+
+    return () => {
+      window.removeEventListener('simulateAIChatClick', handleAIChatToggle);
+      window.removeEventListener('simulateLibraryClick', handleLibraryToggle);
+    };
+  }, []);
+
+  const handleCitationStyleChange = (newStyle: string) => {
+    console.log('Citation style change received in WriterNav:', newStyle);
+    onCitationStyleChange(newStyle);
+  };
+
+  const handleAutocompleteChange = (value: boolean) => {
+    console.log('Autocomplete change received in WriterNav:', value);
+    onAutocompleteChange(value);
+  };
 
   return (
     <>
@@ -121,11 +190,11 @@ export default function WriterNav({
                     className="text-[0.85rem] font-normal bg-transparent border-none focus:outline-none text-gray-900 dark:text-gray-100"
                   />
                 ) : (
-                  <h1 
-                    className="text-[0.85rem] font-normal cursor-pointer text-gray-900 dark:text-gray-100"
+                  <h1
+                    className="text-[0.85rem] font-normal cursor-text text-gray-900 dark:text-gray-100"
                     onClick={handleTitleClick}
                   >
-                    {isGenerating || !title ? "Untitled" : title}
+                    {isGenerating || !title ? "Untitled" : truncateTitle(title)}
                   </h1>
                 )}
               </motion.div>
@@ -136,39 +205,39 @@ export default function WriterNav({
           )}
         </div>
         <div className="flex items-center space-x-2">
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className="bg-[#06f] text-white hover:bg-[#05d] text-xs"
             onClick={() => setShowUpgradeModal(true)}
           >
             Oppgrader
           </Button>
           <div className="relative" ref={dropdownRef}>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-xs text-gray-700 dark:text-gray-300"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
               Eksporter
               <ChevronDown className={`ml-2 h-3 w-3 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </Button>
-            <div 
+            <div
               className={`
-                absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg 
+                absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg
                 overflow-hidden transition-all duration-200 ease-in-out
                 ${isDropdownOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}
               `}
             >
               <div className="py-1">
-                <button 
+                <button
                   onClick={() => { contentManager?.handleDownload(); setIsDropdownOpen(false); }}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   <Download className="mr-2 h-3 w-3" />
                   Last ned
                 </button>
-                <button 
+                <button
                   onClick={() => { contentManager?.handleCopy(); setIsDropdownOpen(false); }}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
@@ -176,7 +245,7 @@ export default function WriterNav({
                   Kopier
                 </button>
                 <div className="px-4 py-2">
-                  <WordPressPostButton 
+                  <WordPressPostButton
                     articleContent={getContent()}
                     articleId={articleId}
                   />
@@ -184,23 +253,25 @@ export default function WriterNav({
               </div>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            ref={aiChatButtonRef}
+            variant="ghost"
+            size="sm"
             className="hidden sm:flex items-center space-x-1 text-xs text-gray-700 dark:text-gray-300"
             onClick={onAIChatToggle}
           >
             <span className="bg-purple-200 dark:bg-purple-700 rounded-full w-1.5 h-1.5" />
             <span>AI Chat</span>
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            ref={libraryButtonRef}
+            variant="ghost"
+            size="sm"
             className="hidden sm:flex items-center space-x-1 text-xs text-gray-700 dark:text-gray-300"
             onClick={() => setIsLibraryOpen(true)}
           >
-            <Library className="h-3 w-3" />
-            <span>Biblotek</span>
+            <Library className="h-4 w-4 mr-1" />
+            <span>Bibliotek</span>
           </Button>
           <div className="relative" ref={profileDropdownRef}>
             <Button
@@ -211,29 +282,29 @@ export default function WriterNav({
             >
               <User className="h-4 w-4" />
             </Button>
-            <div 
+            <div
               className={`
-                absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg 
+                absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg
                 overflow-hidden transition-all duration-200 ease-in-out
                 ${isProfileDropdownOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}
               `}
             >
               <div className="py-1">
-                <button 
+                <button
                   onClick={() => { router.push('/profile'); setIsProfileDropdownOpen(false); }}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   <Settings className="mr-2 h-4 w-4" />
                   Instillinger
                 </button>
-                <button 
+                <button
                   onClick={() => { router.push('/pricing'); setIsProfileDropdownOpen(false); }}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   <Rocket className="mr-2 h-4 w-4" />
                   Se priser
                 </button>
-                <button 
+                <button
                   onClick={toggleTheme}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
@@ -249,7 +320,7 @@ export default function WriterNav({
                     </>
                   )}
                 </button>
-                <button 
+                <button
                   onClick={() => { signOut(); setIsProfileDropdownOpen(false); }}
                   className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900"
                 >
@@ -269,28 +340,42 @@ export default function WriterNav({
           </Button>
         </div>
       </header>
-      <AIChatPanel 
-        isOpen={isAIChatOpen} 
+      <AIChatPanel
+        isOpen={isAIChatOpen}
         onClose={() => setIsAIChatOpen(false)}
         articleContent={getContent()}
         articleId={articleId}
         chatUuid={null}
         addToArticle={addToArticle}
       />
-      <LibraryPanel 
-        isOpen={isLibraryOpen} 
+      <LibraryPanel
+        isOpen={isLibraryOpen}
         onClose={() => setIsLibraryOpen(false)}
         articleId={articleId}
         addToArticle={addToArticle}
       />
-      <Upgrade 
-        isOpen={showUpgradeModal} 
-        onClose={() => setShowUpgradeModal(false)} 
+      <Upgrade
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
         isSidePanelMinimized={isSidePanelMinimized}
       />
-      <SlideOutSettingsPanel 
-        isOpen={isSettingsPanelOpen} 
+      <SlideOutSettingsPanel
+        isOpen={isSettingsPanelOpen}
         onClose={() => setIsSettingsPanelOpen(false)}
+        onLanguageChange={onLanguageChange}
+        onVipPromptChange={onVipPromptChange}
+        onCitationStyleChange={onCitationStyleChange}
+        onAutocompleteChange={onAutocompleteChange}
+        onAutocompleteButtonChange={onAutocompleteButtonChange}
+        onExternalCitingChange={onExternalCitingChange}
+        onLocalCitingChange={onLocalCitingChange}
+        initialLanguage={initialLanguage}
+        initialVipPrompt={initialVipPrompt}
+        initialCitationStyle={initialCitationStyle}
+        initialAutocomplete={initialAutocomplete}
+        initialAutocompleteButton={initialAutocompleteButton}
+        initialExternalCiting={initialExternalCiting}
+        initialLocalCiting={initialLocalCiting}
       />
     </>
   )

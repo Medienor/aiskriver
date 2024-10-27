@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 
 interface SNLLookupProps {
-  onCite: (citation: string, fullCitation: string, result: SNLResult) => void;
+  onCite: (citation: string, fullCitation: string, result: SNLResult, article_url: string) => void;
   selectedText: string;
   maintainSelection: () => void;
   onClose: () => void;
@@ -71,6 +71,36 @@ const SNLLookup: React.FC<SNLLookupProps> = ({
   const snlSearchInputRef = useRef<HTMLInputElement>(null);
   const bingSearchInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    console.log('Current citedArticles state:', citedArticles);
+  }, [citedArticles]);
+
+  useEffect(() => {
+    const fetchCitations = async () => {
+      if (articleId) {
+        try {
+          const { data, error } = await supabase
+            .from('citations')
+            .select('snl_article_id')
+            .eq('article_id', articleId);
+  
+          if (error) throw error;
+  
+          if (data) {
+            console.log('Fetched citations:', data);
+            const citedIds = new Set(data.map(citation => citation.snl_article_id).filter(Boolean));
+            console.log('Cited SNL article IDs:', Array.from(citedIds));
+            setCitedArticles(citedIds);
+          }
+        } catch (error) {
+          console.error('Error fetching citations:', error);
+        }
+      }
+    };
+  
+    fetchCitations();
+  }, [articleId, supabase]);
+
   const searchSNL = useCallback(async (query: string) => {
     setIsSnlLoading(true);
     try {
@@ -97,6 +127,10 @@ const SNLLookup: React.FC<SNLLookupProps> = ({
     } finally {
       setIsSnlLoading(false);
     }
+  }, []);
+
+  const handleCitationAdded = useCallback((citationId: string) => {
+    setCitedArticles(prev => new Set(prev).add(citationId));
   }, []);
 
   const searchBing = useCallback(async (query: string) => {
@@ -198,6 +232,7 @@ const SNLLookup: React.FC<SNLLookupProps> = ({
   };
 
   const handleCite = useCallback((result: SNLResult) => {
+    console.log('handleCite called for article:', result.id);
     if (articleId) {
       // Use articleId
     } else {
@@ -210,9 +245,19 @@ const SNLLookup: React.FC<SNLLookupProps> = ({
     const citation = `(${authors}, ${date})`;
     const fullCitation = formatCitation(result);
     console.log('SNLLookup handleCite called with:', { citation, fullCitation, result });
-    onCite(citation, fullCitation, result);
-    setCitedArticles(prev => new Set(prev).add(result.article_id));
-  }, [articleId, onCite]);
+    onCite(citation, fullCitation, result, result.article_url);
+    setCitedArticles(prev => {
+      const newSet = new Set(prev);
+      newSet.add(result.id);
+      console.log('New citedArticles state:', newSet);
+      return newSet;
+    });
+  }, [articleId, onCite, maintainSelection]);
+
+  // New function to check if an article is cited
+  const isArticleCited = useCallback((articleId: string) => {
+    return citedArticles.has(articleId);
+  }, [citedArticles]);
 
   const addToLibrary = async (result: BingSearchResult) => {
     const snippetId = uuidv4();
@@ -390,7 +435,7 @@ const SNLLookup: React.FC<SNLLookupProps> = ({
                 {snlResults.length > 0 ? (
                   snlResults.map((result) => (
                     <div 
-                      key={result.article_id} 
+                      key={result.id} 
                       className="p-2 flex flex-col justify-between"
                       onMouseEnter={maintainSelection}
                     >
@@ -410,24 +455,24 @@ const SNLLookup: React.FC<SNLLookupProps> = ({
                       </div>
                       <div className="mt-2 flex justify-between items-center">
                         <div className="flex space-x-1">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className={`h-5 text-[10px] px-2 ${citedArticles.has(result.article_id) ? 'opacity-50' : ''}`}
-                            onClick={() => handleCite(result)}
-                            disabled={citedArticles.has(result.article_id)}
-                            onMouseEnter={maintainSelection}
-                          >
-                            {citedArticles.has(result.article_id) ? (
-                              <>
-                                <Check className="w-3 h-3 mr-1 text-green-500" /> Lagt til
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="w-3 h-3 mr-1" /> Siter
-                              </>
-                            )}
-                          </Button>
+                        <Button 
+  variant="outline" 
+  size="sm" 
+  className={`h-5 text-[10px] px-2 ${citedArticles.has(result.id) ? 'opacity-50' : ''}`}
+  onClick={() => handleCite(result)}
+  disabled={citedArticles.has(result.id)}
+  onMouseEnter={maintainSelection}
+>
+  {citedArticles.has(result.id) ? (
+    <>
+      <Check className="w-3 h-3 mr-1 text-green-500" /> Lagt til
+    </>
+  ) : (
+    <>
+      <Plus className="w-3 h-3 mr-1" /> Siter
+    </>
+  )}
+</Button>
                           <Button 
                             variant="outline" 
                             size="sm" 

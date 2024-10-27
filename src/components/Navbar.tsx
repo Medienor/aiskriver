@@ -39,6 +39,16 @@ export function Navbar() {
     }
   };
 
+  const handleSwitchToRegister = () => {
+    setShowLoginPopup(false);
+    setTimeout(() => setShowRegisterPopup(true), 250);
+  };
+
+  const handleSwitchToLogin = () => {
+    setShowRegisterPopup(false);
+    setTimeout(() => setShowLoginPopup(true), 250);
+  };
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (megaMenuRef.current && !megaMenuRef.current.contains(event.target as Node) &&
@@ -83,10 +93,10 @@ export function Navbar() {
     <>
       <nav className="fixed top-0 left-0 right-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-auto md:h-16 py-2 md:py-0">
             <div className="flex items-center">
-              <Link href="/" className="flex items-center text-xl font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
-                <Sparkles className="h-5 w-5 mr-2" />
+              <Link href="/" className="flex items-center text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                <Sparkles className="h-4 w-4 md:h-5 md:w-5 mr-2" />
                 Innhold.AI
               </Link>
               <div className="hidden md:flex ml-10 space-x-6">
@@ -190,10 +200,10 @@ export function Navbar() {
               <Button 
                 className="md:hidden"
                 variant="outline"
-                size="icon"
+                size="sm"
                 onClick={() => setIsMobileMenuOpen(true)}
               >
-                <MenuIcon className="h-[1.2rem] w-[1.2rem] text-gray-900 dark:text-gray-100" />
+                <MenuIcon className="h-4 w-4 md:h-[1.2rem] md:w-[1.2rem] text-gray-900 dark:text-gray-100" />
               </Button>
             </div>
           </div>
@@ -243,8 +253,16 @@ export function Navbar() {
         </>
       )}
       <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
-      {showLoginPopup && <LoginPopup onClose={() => setShowLoginPopup(false)} />}
-      {showRegisterPopup && <RegisterPopup onClose={() => setShowRegisterPopup(false)} />}
+      <LoginPopup 
+        onClose={() => setShowLoginPopup(false)} 
+        onSwitchToRegister={handleSwitchToRegister}
+        isVisible={showLoginPopup}
+      />
+      <RegisterPopup 
+        onClose={() => setShowRegisterPopup(false)} 
+        onSwitchToLogin={handleSwitchToLogin}
+        isVisible={showRegisterPopup}
+      />
       <style jsx global>{`
         @keyframes subtleGrowDown {
           0% {

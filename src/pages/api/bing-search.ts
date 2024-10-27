@@ -2,74 +2,110 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 
 const subscription_key = process.env.BING_SEARCH_V7_SUBSCRIPTION_KEY;
-const endpoint = "https://api.bing.microsoft.com/v7.0/search";
+const webSearchEndpoint = "https://api.bing.microsoft.com/v7.0/search";
+const newsSearchEndpoint = "https://api.bing.microsoft.com/v7.0/news/search";
+
+async function performSearch(endpoint: string, query: string, params: any) {
+  const response = await axios.get(endpoint, {
+    headers: {
+      'Ocp-Apim-Subscription-Key': subscription_key!,
+      'Accept': 'application/json',
+      'Accept-Language': 'nb-NO'
+    },
+    params: {
+      q: query,
+      mkt: 'nb-NO',
+      setLang: 'nb-NO',
+      ...params
+    },
+  });
+
+  return response.data;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { query, offset, count, safeSearch } = req.query;
-
-  if (!query) {
-    return res.status(400).json({ message: 'Query parameter is required' });
-  }
+  const { query, offset, count, safeSearch, searchType } = req.query;
 
   console.log('Bing Search API Request:', {
-    endpoint,
     query,
     offset,
     count,
     safeSearch,
+    searchType,
     subscription_key: subscription_key ? 'Set' : 'Not set'
   });
 
   try {
-    const response = await axios.get(endpoint, {
-      headers: {
-        'Ocp-Apim-Subscription-Key': subscription_key!,
-        'Accept': 'application/json',
-        'Accept-Language': 'nb-NO'
-      },
-      params: {
-        q: query,
-        mkt: 'nb-NO',
-        setLang: 'nb-NO',
+    let results;
+    if (searchType === 'news') {
+      console.log('Performing news search');
+      results = await performSearch(newsSearchEndpoint, query as string, {
+        count: count || 10,
+        offset: offset || 0,
+        safeSearch: safeSearch || 'Moderate',
+      });
+
+      console.log('Bing News Search API Response:', {
+        status: 200,
+        totalEstimatedMatches: results.totalEstimatedMatches,
+        resultCount: results.value?.length || 0,
+      });
+
+      const parsedResults = {
+        newsArticles: results.value.map((article: any) => ({
+          name: article.name,
+          url: article.url,
+          description: article.description,
+          datePublished: article.datePublished,
+          provider: article.provider[0]?.name,
+        })),
+        totalEstimatedMatches: results.totalEstimatedMatches || 0,
+      };
+
+      res.status(200).json(parsedResults);
+    } else {
+      console.log('Performing web search');
+      // Default to web search
+      results = await performSearch(webSearchEndpoint, query as string, {
         count: count || 10,
         offset: offset || 0,
         safeSearch: safeSearch || 'Moderate',
         textFormat: 'HTML',
         responseFilter: 'Webpages',
-      },
-    });
+      });
 
-    console.log('Bing Search API Response:', {
-      status: response.status,
-      headers: response.headers,
-    });
+      console.log('Bing Web Search API Response:', {
+        status: 200,
+        headers: results.headers,
+      });
 
-    const webPages = response.data.webPages?.value || [];
+      const webPages = results.webPages?.value || [];
 
-    console.log('\nWeb Pages Results:');
-    webPages.forEach((page: any, index: number) => {
-      console.log(`\n[Result ${index + 1}]`);
-      console.log(`Name: ${page.name}`);
-      console.log(`URL: ${page.url}`);
-      console.log(`Snippet: ${page.snippet}`);
-    });
+      console.log('\nWeb Pages Results:');
+      webPages.forEach((page: any, index: number) => {
+        console.log(`\n[Result ${index + 1}]`);
+        console.log(`Name: ${page.name}`);
+        console.log(`URL: ${page.url}`);
+        console.log(`Snippet: ${page.snippet}`);
+      });
 
-    const parsedResults = {
-      webPages: webPages.map((page: any) => ({
-        name: page.name,
-        url: page.url,
-        snippet: page.snippet,
-        datePublished: page.datePublished,
-        thumbnailUrl: page.thumbnailUrl,
-      })),
-      totalEstimatedMatches: response.data.webPages?.totalEstimatedMatches || 0,
-    };
+      const parsedResults = {
+        webPages: webPages.map((page: any) => ({
+          name: page.name,
+          url: page.url,
+          snippet: page.snippet,
+          datePublished: page.datePublished,
+          thumbnailUrl: page.thumbnailUrl,
+        })),
+        totalEstimatedMatches: results.webPages?.totalEstimatedMatches || 0,
+      };
 
-    res.status(200).json(parsedResults);
+      res.status(200).json(parsedResults);
+    }
   } catch (error: any) {
     console.error('Bing Search API Error:', {
       message: error.message,

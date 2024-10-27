@@ -8,7 +8,6 @@ function decodeURL(url: string): string {
   try {
     return decodeURIComponent(url);
   } catch (error) {
-    console.error('Error decoding URL:', error);
     return url;
   }
 }
@@ -33,24 +32,19 @@ interface Citation {
 }
 
 function formatAPA7(citation: Citation): string {
-  console.log('Formatting APA7 citation:', citation);
-
   // Extract authors from the full_citation if authors field is not available
   const authors = citation.authors ? citation.authors.split(', ') : extractAuthors(citation.full_citation);
   
   // Format authors
   const authorString = formatAuthorsAPA(authors);
-  console.log('Formatted authors:', authorString);
   
   // Extract year from last_updated if available, otherwise from full_citation
   const year = citation.last_updated 
     ? citation.last_updated.match(/\((\d{4})/)?.[1] || 'u.å.'
     : extractYear(citation.full_citation);
-  console.log('Year:', year);
   
   // Capitalize the first letter of the title
   const title = citation.title ? capitalizeFirstLetter(citation.title) : extractTitle(citation.full_citation);
-  console.log('Formatted title:', title);
   
   // Construct the APA citation
   let apaCitation = '';
@@ -71,7 +65,6 @@ function formatAPA7(citation: Citation): string {
     apaCitation += `. ${decodeURL(citation.article_url)}`;
   }
   
-  console.log('Final APA7 citation:', apaCitation.trim());
   return apaCitation.trim();
 }
 
@@ -144,8 +137,9 @@ function formatIEEE(citation: Citation): string {
   // Extract and format publication year
   const year = extractYear(citation.full_citation);
   
-  // Format title (should be in quotes for IEEE)
-  const title = `"${citation.title}"`;
+  // Format title (should be in quotes for IEEE if it exists)
+  const title = citation.title || extractTitle(citation.full_citation);
+  const titleString = title ? `"${title}", ` : '';
   
   // Format source (e.g., journal name, conference name)
   const source = extractSource(citation.full_citation);
@@ -157,7 +151,7 @@ function formatIEEE(citation: Citation): string {
   const pages = extractPages(citation.full_citation);
   
   // Construct the IEEE citation
-  let ieeeCitation = `${authorString}, ${title}, `;
+  let ieeeCitation = `${authorString}, ${titleString}`;
   
   if (source) {
     ieeeCitation += `${source}, `;
@@ -198,14 +192,14 @@ export function formatCitation(citation: Citation, style: string): {
   let formattedText = '';
   const url = citation.article_url || null;
 
-  switch (style) {
-    case 'APA7':
+  switch (style.toLowerCase()) { // Ensure style keys are lowercase
+    case 'apa7':
       formattedText = formatAPA7(citation);
       break;
-    case 'MLA9':
+    case 'mla9':
       formattedText = formatMLA9(citation);
       break;
-    case 'IEEE':
+    case 'ieee':
       formattedText = formatIEEE(citation);
       break;
     default:

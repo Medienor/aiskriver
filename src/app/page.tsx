@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
 import { Star, Check, Zap, Search, Shield, ArrowRight, Info } from 'lucide-react';
@@ -11,6 +11,9 @@ import { Clock, TrendingUp, MessageSquare, Globe, Users, DollarSign, Heart, Arro
 import Footer from '@/components/footer';
 import UseCases from '@/components/use-cases';
 import PlagiatRowSection from '@/components/PlagiatRowSection';
+import LoginPopup from '@/components/login-popup';
+import RegisterPopup from '@/components/register-popup';
+import VideoPreview from '@/components/VideoPreview';
 
 const benefits = [
   { title: "Spar tid", description: "Generer innhold raskt og effektivt" },
@@ -58,22 +61,65 @@ const StarRating = () => (
 export default function LandingPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
+  const [showRegisterPopup, setShowRegisterPopup] = useState(false);
 
   const handleButtonClick = () => {
     if (session) {
       router.push('/write');
     } else {
-      router.push('/auth');
+      setShowLoginPopup(true);
     }
   };
 
+  const handleSwitchToRegister = () => {
+    setShowLoginPopup(false);
+    setTimeout(() => setShowRegisterPopup(true), 250);
+  };
+
+  const handleSwitchToLogin = () => {
+    setShowRegisterPopup(false);
+    setTimeout(() => setShowLoginPopup(true), 250);
+  };
+
+  useEffect(() => {
+    // Enable scrolling when component mounts and disable when it unmounts
+    document.body.style.overflow = 'auto';
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
+
+  useEffect(() => {
+    // Disable scrolling when either popup is open
+    if (showLoginPopup || showRegisterPopup) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  }, [showLoginPopup, showRegisterPopup]);
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+      {showLoginPopup && (
+        <LoginPopup 
+          onClose={() => setShowLoginPopup(false)} 
+          onSwitchToRegister={handleSwitchToRegister}
+          isVisible={showLoginPopup}
+        />
+      )}
+      {showRegisterPopup && (
+        <RegisterPopup 
+          onClose={() => setShowRegisterPopup(false)} 
+          onSwitchToLogin={handleSwitchToLogin}
+          isVisible={showRegisterPopup}
+        />
+      )}
       <main className="flex flex-col items-center">
-        <div className="w-full max-w-6xl px-4 py-16">
-          <div className="text-center mb-16">
-            <h1 className="text-4xl font-bold mb-4">AI som skriver for deg</h1>
-            <p className="text-xl mb-8">Generer høykvalitets artikler, blogginnlegg og mer med vår kraftige AI-skriveverktøy.</p>
+        <div className="w-full max-w-6xl px-4 py-8 sm:py-16">
+          <div className="text-center mb-8 sm:mb-16">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-4">AI som skriver for deg</h1>
+            <p className="text-xl mb-8 sm:text-xl text-[0.8rem] sm:text-base">Generer høykvalitets artikler, blogginnlegg og mer med vår kraftige AI-skriveverktøy.</p>
 
             <div className="mb-12 flex justify-center"> {/* Changed mb-8 to mb-12 */}
               <div className="w-[300px] relative overflow-hidden">
@@ -96,7 +142,7 @@ export default function LandingPage() {
             <div className="flex justify-center items-center mb-4">
               <Button 
                 size="lg" 
-                className="px-8 py-6 text-xl font-semibold"
+                className="px-4 sm:px-8 py-4 sm:py-6 text-lg sm:text-xl font-semibold w-full sm:w-auto"
                 style={{
                   borderWidth: '2px',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
@@ -108,8 +154,8 @@ export default function LandingPage() {
                 }}
                 onClick={handleButtonClick}
               >
-                <span>{session ? "Skriv innhold" : "Prøv Innhold.AI gratis"}</span>
-                <span className="ml-2 text-sm font-normal opacity-80">- Gratis</span> {/* Added opacity-80 */}
+                <span>{session ? "Skriv innhold" : "Test det ut"}</span>
+                <span className="ml-2 text-sm font-normal opacity-80">- Gratis</span>
               </Button>
             </div>
             <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-400">
@@ -118,47 +164,28 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
-            <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg">
-              <div className="flex items-center mb-4">
-                <Zap className="w-6 h-6 mr-2 text-blue-500" />
-                <h3 className="text-2xl font-semibold">Rask generering</h3>
-              </div>
-              <p>Skap innhold på sekunder med vår avanserte AI-teknologi.</p>
-            </div>
-            <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg">
-              <div className="flex items-center mb-4">
-                <Search className="w-6 h-6 mr-2 text-blue-500" />
-                <h3 className="text-2xl font-semibold">SEO-optimalisert</h3>
-              </div>
-              <p>Få innhold som rangerer høyt i søkemotorer.</p>
-            </div>
-            <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg">
-              <div className="flex items-center mb-4">
-                <Shield className="w-6 h-6 mr-2 text-blue-500" />
-                <h3 className="text-2xl font-semibold">Plagiatsjekk</h3>
-              </div>
-              <p>Sikre at innholdet ditt er 100% unikt og originalt.</p>
-            </div>
+          <div className="max-w-[1040px] mx-auto mb-8 sm:mb-16">
+            <VideoPreview />
           </div>
+
         </div>
 
         {/* Use Cases Section */}
         <UseCases />
 
         {/* Call to Action Section */}
-        <div className="w-full bg-[#1a1c28] text-white py-16">
+        <div className="w-full bg-[#1a1c28] text-white py-16 sm:py-16">
           <div className="max-w-6xl mx-auto px-4 text-center">
-            <h2 className="text-4xl font-bold mb-4">Kom i gang i dag</h2>
-            <div className="max-w-lg mx-auto mb-8">
-              <p className="text-lg text-gray-300 opacity-70">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Kom i gang i dag</h2>
+            <div className="max-w-lg mx-auto mb-6 sm:mb-8">
+              <p className="text-base sm:text-lg text-gray-300 opacity-70 text-[0.8rem] sm:text-base">
                 Innhold.AI har også utviklet over 120 verktøy som gjør det enklere for deg å produsere original tekst
               </p>
             </div>
             <div className="flex flex-col items-center space-y-4">
               <Button 
                 size="lg" 
-                className="w-full sm:w-auto px-8 py-6 text-xl font-semibold"
+                className="max-w-lg px-4 sm:px-8 py-4 sm:py-6 text-lg sm:text-xl font-semibold"
                 style={{
                   borderWidth: '2px',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
@@ -170,8 +197,8 @@ export default function LandingPage() {
                 }}
                 onClick={handleButtonClick}
               >
-                <span>{session ? "Skriv innhold" : "Prøv Innhold.AI gratis"}</span>
-                <span className="ml-2 text-sm font-normal opacity-80">- Gratis</span>
+                <span>{session ? "Skriv innhold" : "Test det ut"}</span>
+                <span className="ml-2 text-xs sm:text-sm font-normal opacity-80">- Gratis</span>
               </Button>
               <Link href="/tools" passHref className="text-white opacity-70 hover:opacity-100 transition-opacity text-sm">
                 Se 120+ skriveverktøy
@@ -181,7 +208,7 @@ export default function LandingPage() {
         </div>
 
         {/* PlagiatRowSection */}
-        <PlagiatRowSection />
+        <PlagiatRowSection onButtonClick={handleButtonClick} />
 
         {/* SlidingBlocks component */}
         <div className="w-full py-16">
@@ -191,20 +218,22 @@ export default function LandingPage() {
         </div>
 
         {/* Benefits Section */}
-        <div className="w-full bg-gray-100 dark:bg-gray-800 py-16">
+        <div className="sm:w-full bg-gray-100 dark:bg-gray-800 py-16">
           <div className="max-w-6xl mx-auto px-4">
             <h2 className="text-3xl font-bold text-center mb-4">Fordeler med Innhold.AI</h2>
-            <p className="text-center mb-12 text-gray-600 dark:text-gray-400">Oppdag hvordan Innhold.AI kan transformere din innholdsproduksjon</p>
-            <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <p className="text-center mb-12 text-gray-600 dark:text-gray-400 text-[0.8rem] sm:text-base">Oppdag hvordan Innhold.AI kan transformere din innholdsproduksjon</p>
+            <div className="flex flex-wrap -mx-2">
               {benefits.map((benefit, index) => (
-                <div key={index} className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow-sm">
-                  <div className="flex items-center mb-2">
-                    <span className="text-blue-500 mr-2">
-                      {benefitIcons[benefit.title as keyof typeof benefitIcons]}
-                    </span>
-                    <h3 className="text-sm font-semibold text-blue-500">{benefit.title}</h3>
+                <div key={index} className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 px-2 mb-4">
+                  <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow-sm">
+                    <div className="flex items-center mb-2">
+                      <span className="text-blue-500 mr-2">
+                        {benefitIcons[benefit.title as keyof typeof benefitIcons]}
+                      </span>
+                      <h3 className="text-sm font-semibold text-blue-500">{benefit.title}</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{benefit.description}</p>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{benefit.description}</p>
                 </div>
               ))}
             </div>
@@ -227,9 +256,8 @@ export default function LandingPage() {
                 { question: "Hvilke språk støtter Innhold.AI?", answer: "Innhold.AI støtter en rekke språk, inkludert norsk, engelsk, svensk, dansk og mange flere." },
                 { question: "Hvordan er prismodellen for Innhold.AI?", answer: "Vi tilbyr flere prisplaner for å passe ulike behov, fra enkeltpersoner til store bedrifter. Se vår prisside for mer informasjon." },
                 { question: "Er det en gratis prøveperiode?", answer: "Ja, vi tilbyr en gratis prøveperiode med 5 000 ord for alle nye brukere slik at du kan teste Innhold.AI og se hvordan det kan hjelpe deg med din innholdsproduksjon." },
-                { question: "Hvordan sikrer Innhold.AI personvern og datasikkerhet?", answer: "Vi tar personvern og datasikkerhet på alvor. All data er kryptert, og vi følger strenge retningslinjer for å beskytte våre brukeres informasjon." },
                 { question: "Kan jeg integrere Innhold.AI med andre verktøy?", answer: "Ja, Innhold.AI tilbyr API-er og integrasjoner med populære verktøy for innholdshåndtering og markedsføring." },
-                { question: "Tilbyr dere tekst omskriving?", answer: "Ja, Innhold.AI tilbyr en kraftig funksjon for tekstomskriving. Dette verktøyet kan hjelpe deg med å omformulere eksisterende tekst for å forbedre klarhet, unngå plagiat, eller tilpasse tonen til et annet publikum. Vår AI kan omskrive alt fra korte avsnitt til lengre artikler, samtidig som den bevarer den opprinnelige meningen. Vi tilbyr både artikkel omskriving og paragraf omskriver for å møte dine ulike behov." },
+                { question: "Tilbyr dere tekst omskriving?", answer: "Ja, Innhold.AI tilbyr en kraftig funksjon for tekstomskriving. Dette verktøyet kan hjelpe deg med å omformulere eksisterende tekst for å forbedre klarhet, unngå plagiat, eller tilpasse tonen til et annet publikum. Vår AI kan omskrive alt fra korte avsnitt til lengre artikler, samtidig som den bevarer den opprinnelige meningen. Vi tilbyr bde artikkel omskriving og paragraf omskriver for å møte dine ulike behov." },
                 { question: "Er plagiatkontroll gratis?", answer: "Ja, plagiatkontroll er inkludert gratis i Innhold.AI med 10 søk hver bruker, dersom du vil ha flere plagitatsøk må du kjøpe en av våre pakker. Vår innebygde plagiatsjekk-funksjon sikrer at alt innhold du genererer er unikt og originalt. Dette verktøyet er tilgjengelig for alle brukere uten ekstra kostnad, og gir deg trygghet om at innholdet ditt er fritt for utilsiktet plagiering." },
                 { question: "Innhold.AI eller ChatGPT?", answer: "Mens både Innhold.AI og ChatGPT er kraftige AI-verktøy, er Innhold.AI spesielt designet for innholdsproduksjon og optimalisert for norsk språk. Innhold.AI tilbyr over 120 spesialiserte verktøy for ulike skriveoppgaver, inkludert SEO-optimalisering og plagiatkontroll. I motsetning til ChatGPT, som er en generell chatbot, er Innhold.AI skreddersydd for å møte spesifikke behov innen innholdsproduksjon, med funksjoner som tekstomskriving og målrettet innholdsgenerering. Dessuten har Innhold.AI en egen database som kontinuerlig trener seg opp på norsk tekst, noe som sikrer høy kvalitet og relevans for norske brukere." }
               ].map((item, index) => (
@@ -243,11 +271,11 @@ export default function LandingPage() {
                       }
                     }}
                   >
-                    <span className="font-medium text-lg md:text-base">{item.question}</span>
+                    <span className="font-medium text-lg md:text-base text-[0.8rem] md:text-lg">{item.question}</span>
                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                   </button>
                   <div id={`content-${index}`} className="hidden mt-2">
-                    <p className="text-gray-600">{item.answer}</p>
+                    <p className="text-gray-600 text-[0.8rem]">{item.answer}</p>
                   </div>
                 </div>
               ))}

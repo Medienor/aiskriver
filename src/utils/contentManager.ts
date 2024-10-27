@@ -17,11 +17,11 @@ export class ContentManager {
   private isPremiumUser: boolean;
   private citationStyle: string;
 
-  constructor(quill: any, citations: Citation[] | undefined, isPremiumUser: boolean, citationStyle: string) {
+  constructor(quill: any, citations: Citation[] | undefined, isPremiumUser: boolean) {
     this.quill = quill;
     this.citations = citations || [];
     this.isPremiumUser = isPremiumUser;
-    this.citationStyle = citationStyle;
+    this.citationStyle = 'apa7'; // Set a default value or fetch from elsewhere
   }
 
   getContent(): string {

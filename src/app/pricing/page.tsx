@@ -98,17 +98,17 @@ export default function Pricing() {
 
   const pricingTiers = [
     {
-      title: "Månedlig",
-      price: 299,
-      features: features,
-      stripeLink: "https://buy.stripe.com/5kA9D27Yi6i70tqbIW"
-    },
-    {
       title: "Årlig",
       price: 199,
       features: features,
       stripeLink: "https://buy.stripe.com/eVa9D23I2dKza4014j",
       savingsLabel: "Spar 33%"
+    },
+    {
+      title: "Månedlig",
+      price: 299,
+      features: features,
+      stripeLink: "https://buy.stripe.com/5kA9D27Yi6i70tqbIW"
     }
   ];
 

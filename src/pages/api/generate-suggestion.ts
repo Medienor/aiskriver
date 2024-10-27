@@ -83,8 +83,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     currentSentence, 
     isSentenceEnd,
     currentTitle,
-    surroundingContext
+    surroundingContext,
+    language,
+    vipPrompt
   } = req.body
+
+  console.log('Selected language:', language); // Add this log
 
   console.log('Received content length:', content?.length || 'undefined');
   console.log('Received relevant content length:', relevantContent?.length || 'undefined');
@@ -133,9 +137,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const articleContext = relevantContent.split('\n\n').slice(0, 2).join('\n\n');
 
     if (isNewEmptyLine) {
-      promptInstruction = `Artikkel Tittel: ${h1}\n\nGjeldende H2 Seksjon: ${currentH2}\n\nInnhold: ${extractedRelevantContent}\n\nSiste Avsnitt: ${lastParagraph || '(tomt)'}\n\nBasert på dette innholdet og den gjeldende H2-seksjonen, vennligst generer et avsnitt på 75 til 100 ord som passer sømløst med det eksisterende innholdet og fortsetter diskusjonen innenfor den gjeldende seksjonen.`;
+      promptInstruction = `Artikkel Tittel: ${h1}\n\nGjeldende H2 Seksjon: ${currentH2}\n\nInnhold: ${extractedRelevantContent}\n\nSiste Avsnitt: ${lastParagraph || '(tomt)'}\n\nBasert på dette innholdet og den gjeldende H2-seksjonen, vennligst generer et avsnitt på 50 til 75 ord som passer sømløst med det eksisterende innholdet og fortsetter diskusjonen innenfor den gjeldende seksjonen. Det er veldig viktig at du ikke overskrider 75 ord.`;
     } else if (isNewLineAfterH1) {
-      promptInstruction = `Du skriver en introduksjon for en artikkel med tittelen "${h1}". Vennligst generer et kort introduksjonsavsnitt på 75-100 ord som setter konteksten for artikkelen og engasjerer leseren. Dette bør gi en generell oversikt over hva artikkelen vil dekke.`;
+      promptInstruction = `Du skriver en introduksjon for en artikkel med tittelen "${h1}". Vennligst generer et kort introduksjonsavsnitt på 50 til 75 ord som setter konteksten for artikkelen og engasjerer leseren. Dette bør gi en generell oversikt over hva artikkelen vil dekke. Det er veldig viktig at du ikke overskrider 75 ord.`;
     } else if (isNewTitleWithoutContent) {
       if (currentH2 === titleToUse) {
         promptInstruction = `Artikkel Tittel: ${h1}\n\nArtikkel Kontekst: ${articleContext}\n\nGjeldende H2 Seksjon: ${currentH2}\n\nDu starter en ny hovedseksjon av artikkelen. Basert på artikkeltittelen, konteksten og den gjeldende H2-seksjonstittelen, vennligst generer et avsnitt på 75-100 ord som introduserer denne seksjonen. Dette bør gi kontekst for hva denne seksjonen vil dekke og hvordan den relaterer seg til den overordnede artikkelen.`;
@@ -153,24 +157,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptInstruction}
 
       VIKTIGE REGLER:
-      1. Skriv alltid på norsk, uansett hva.
+      1. Skriv alltid på ${language === 'norwegian' ? 'norsk' : language}, uansett hva.
       2. Opptre som en ekte person med stor kunnskap om emnet ${h1}.
       3. Det genererte innholdet ditt skal flyte naturlig med den eksisterende teksten.
       4. Hold deg strengt til ordantallet som er spesifisert i instruksjonen.
       5. Oppretthold stilen, tonen og fokuset i det eksisterende innholdet.
       6. Ikke gjenta informasjon som allerede er til stede i artikkelen.
-      7. Sørg for at svaret ditt er relevant for den nåværende seksjonen eller konteksten.
+      7. Sørg for at svaret ditt er relevant for den gjeldende seksjonen eller konteksten.
+      ${vipPrompt ? `8. ${vipPrompt}` : ''}
 
       Generer innholdet nå:
     `;
 
-    console.log('Generated prompt:', prompt);
+    console.log('Generated prompt:', prompt); // Add this log
 
     const stream = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       stream: true,
-      max_tokens: isNewLineAfterH1 || isNewTitleWithoutContent ? 150 : isNewEmptyLine ? 100 : 50,
+      max_tokens: isNewLineAfterH1 || isNewTitleWithoutContent ? 250 : isNewEmptyLine ? 175 : 75,
     });
 
     for await (const chunk of stream) {

@@ -189,3 +189,26 @@ mark {
 .dark .tooltip-content {
   border-color: #434343;
 }
+
+.documents-list::-webkit-scrollbar {
+  width: 4px; /* Reduced from 6px to 4px */
+}
+
+.documents-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.documents-list::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.3); /* Made more transparent */
+  border-radius: 2px; /* Reduced from 3px to 2px */
+}
+
+.documents-list::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.5); /* Made more transparent */
+}
+
+/* For Firefox */
+.documents-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent; /* Made more transparent */
+}

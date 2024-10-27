@@ -1,11 +1,20 @@
 import { v4 as uuidv4 } from 'uuid';
 
-export async function uploadPdf(file: File, articleId: string) {
+interface UploadPdfParams {
+  file: File;
+  articleId: string;
+  chatUuid: string;
+}
+
+export async function uploadPdf({ file, articleId, chatUuid }: UploadPdfParams) {
   try {
-    // Convert file to base64
+    console.log('🔄 Starting PDF upload process:', { 
+      fileName: file.name,
+      chatUuid // Log to verify we have it
+    });
+    
     const base64File = await fileToBase64(file);
 
-    // Send the file to your server
     const response = await fetch('/api/upload-pdf', {
       method: 'POST',
       headers: {
@@ -13,8 +22,9 @@ export async function uploadPdf(file: File, articleId: string) {
       },
       body: JSON.stringify({
         file: base64File,
-        articleId: articleId,
+        articleId,
         name: file.name,
+        chatUuid // Make sure we're sending it
       }),
     });
 
@@ -24,15 +34,12 @@ export async function uploadPdf(file: File, articleId: string) {
 
     const result = await response.json();
 
+    // Verify the chatUuid is in the response
+    console.log('📤 PDF upload successful, chat UUID:', chatUuid);
+
     return {
-      id: result.id,
-      title: file.name,
-      url: result.url,
-      text: 'PDF Document',
-      favicon_url: '/pdf-icon.png',
-      summary: `Uploaded PDF: ${file.name}`,
-      is_pdf: true,
-      file_name: file.name,
+      ...result,
+      chat_uuid: chatUuid // Ensure it's included in the return object
     };
   } catch (error) {
     console.error('Error uploading PDF:', error);

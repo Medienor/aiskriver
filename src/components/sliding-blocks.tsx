@@ -144,75 +144,81 @@ const tools = [
 
 const Block: React.FC<Tool> = ({ id, name, icon }) => (
   <Link href={`/tools/${id}`} className="block">
-    <div className="flex items-center justify-center px-4 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-md m-2 min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+    <div className="flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-md m-1 min-w-[150px] sm:min-w-[200px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
       <span className="mr-2 text-blue-500 dark:text-blue-400">{icon}</span>
-      <span className="text-gray-800 dark:text-gray-200 font-medium" style={{ fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{name}</span>
+      <span className="text-gray-800 dark:text-gray-200 font-medium text-sm sm:text-base" style={{ whiteSpace: 'nowrap' }}>{name}</span>
     </div>
   </Link>
 )
 
 const Row: React.FC<{ tools: Tool[], direction: 1 | -1 }> = ({ tools, direction }) => {
-    const [isRowHovered, setIsRowHovered] = useState(false);
-    const [isItemHovered, setIsItemHovered] = useState(false);
-    const [currentPosition, setCurrentPosition] = useState(0);
-  
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [containerWidth, setContainerWidth] = useState(0);
-  
-    useEffect(() => {
+  const [isRowHovered, setIsRowHovered] = useState(false);
+  const [isItemHovered, setIsItemHovered] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState(0);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const updateWidth = () => {
       if (containerRef.current) {
-        setContainerWidth(containerRef.current.scrollWidth / 2);
+        setContainerWidth(containerRef.current.offsetWidth);
       }
-    }, [tools]);
-  
-    const duplicatedTools = [...tools, ...tools, ...tools];
-  
-    return (
-      <div className="relative overflow-hidden my-4">
-        <div
-          className="flex overflow-hidden"
-          onMouseEnter={() => setIsRowHovered(true)}
-          onMouseLeave={() => setIsRowHovered(false)}
-          ref={containerRef}
+    };
+
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  const duplicatedTools = [...tools, ...tools];
+
+  return (
+    <div className="relative overflow-hidden my-2 sm:my-4">
+      <div
+        className="flex overflow-hidden"
+        onMouseEnter={() => setIsRowHovered(true)}
+        onMouseLeave={() => setIsRowHovered(false)}
+        ref={containerRef}
+      >
+        <motion.div
+          className="flex"
+          animate={{
+            x: isRowHovered || isItemHovered 
+              ? currentPosition
+              : direction === 1 
+                ? [-containerWidth, 0] 
+                : [0, -containerWidth]
+          }}
+          transition={{
+            repeat: Infinity,
+            repeatType: "loop",
+            duration: 50,
+            ease: "linear",
+          }}
+          style={{ width: `${containerWidth * 2}px` }}
+          onUpdate={(latest) => {
+            if (!isRowHovered && !isItemHovered) {
+              setCurrentPosition(latest.x as number);
+            }
+          }}
         >
-          <motion.div
-            className="flex"
-            animate={{
-              x: isRowHovered || isItemHovered 
-                ? currentPosition
-                : direction === 1 
-                  ? [-containerWidth, 0] 
-                  : [0, -containerWidth]
-            }}
-            transition={{
-              repeat: Infinity,
-              repeatType: "loop",
-              duration: 100,
-              ease: "linear",
-            }}
-            style={{ width: `${containerWidth * 2}px` }}
-            onUpdate={(latest) => {
-              if (!isRowHovered && !isItemHovered) {
-                setCurrentPosition(latest.x as number);
-              }
-            }}
-          >
-            {duplicatedTools.map((tool, index) => (
-              <div
-                key={`${tool.id}-${index}`}
-                onMouseEnter={() => setIsItemHovered(true)}
-                onMouseLeave={() => setIsItemHovered(false)}
-              >
-                <Block {...tool} />
-              </div>
-            ))}
-          </motion.div>
-        </div>
-        <div className="absolute top-0 bottom-0 left-0 w-20 bg-gradient-to-r from-white to-transparent dark:from-[#111827] dark:to-transparent pointer-events-none"></div>
-        <div className="absolute top-0 bottom-0 right-0 w-20 bg-gradient-to-l from-white to-transparent dark:from-[#111827] dark:to-transparent pointer-events-none"></div>
+          {duplicatedTools.map((tool, index) => (
+            <div
+              key={`${tool.id}-${index}`}
+              onMouseEnter={() => setIsItemHovered(true)}
+              onMouseLeave={() => setIsItemHovered(false)}
+            >
+              <Block {...tool} />
+            </div>
+          ))}
+        </motion.div>
       </div>
-    );
-  };
+      <div className="absolute top-0 bottom-0 left-0 w-8 sm:w-20 bg-gradient-to-r from-white to-transparent dark:from-[#111827] dark:to-transparent pointer-events-none"></div>
+      <div className="absolute top-0 bottom-0 right-0 w-8 sm:w-20 bg-gradient-to-l from-white to-transparent dark:from-[#111827] dark:to-transparent pointer-events-none"></div>
+    </div>
+  );
+};
 
 export default function Component() {
   const [rows, setRows] = useState<Tool[][]>([])
@@ -226,17 +232,19 @@ export default function Component() {
   }, [])
 
   return (
-    <div className="bg-white dark:bg-gray-900 py-12 px-4">
-      <h1 className="text-4xl font-bold text-center text-gray-900 dark:text-gray-100 mb-8">
+    <div className="hidden lg:block bg-white dark:bg-gray-900 py-8 sm:py-12 px-2 sm:px-4">
+      <h1 className="text-2xl sm:text-4xl font-bold text-center text-gray-900 dark:text-gray-100 mb-4 sm:mb-8">
         Gå aldri tom for inspirasjon igjen
       </h1>
-      <p className="text-center text-gray-700 dark:text-gray-300 mb-12 max-w-2xl mx-auto">
+      <p className="text-center text-gray-700 dark:text-gray-300 mb-6 sm:mb-12 max-w-2xl mx-auto text-sm sm:text-base">
         Innhold.AI dekker alle innholdsbehovene dine og tilbyr 120+ AI-skriveverktøy for å perfeksjonere håndverket ditt.
       </p>
-      {rows.map((rowTools, index) => (
-        <Row key={index} tools={rowTools} direction={index % 2 === 0 ? 1 : -1} />
-      ))}
-      <div className="text-center mt-12 mb-8">
+      <div className="overflow-hidden">
+        {rows.map((rowTools, index) => (
+          <Row key={index} tools={rowTools} direction={index % 2 === 0 ? 1 : -1} />
+        ))}
+      </div>
+      <div className="text-center mt-6 sm:mt-12 mb-4 sm:mb-8">
         <Link href="/tools" className="inline-block bg-[#06f] hover:bg-[#0055cc] text-white font-bold py-2 px-4 rounded transition-colors duration-200 text-sm">
           Sjekk alle skrive- og innholdsverktøy her
         </Link>

@@ -82,12 +82,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               </Link>
             </li>
             <li>
-              <Link href="/ai-chat" className="flex items-center py-2 px-4 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" onClick={onClose}>
-                <Star className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
-                AI Chat
-              </Link>
-            </li>
-            <li>
               <Link href="/pricing" className="flex items-center py-2 px-4 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" onClick={onClose}>
                 <Smile className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
                 Pris
@@ -103,25 +97,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               <Link href="/plagiat-sjekker" className="flex items-center py-2 px-4 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" onClick={onClose}>
                 <Search className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
                 Plagiat sjekk
-              </Link>
-            </li>
-            <li>
-              <Link href="/dashboard" className="flex items-center py-2 px-4 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" onClick={onClose}>
-                <PencilIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
-                Skriv
-              </Link>
-            </li>
-            {/* Updated Affiliate link */}
-            <li>
-              <a href="#" className="flex items-center py-2 px-4 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" onClick={handleAffiliateClick}>
-                <LinkIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
-                Affiliate
-              </a>
-            </li>
-            <li>
-              <Link href="/matteloser" className="flex items-center py-2 px-4 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" onClick={onClose}>
-                <Calculator className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
-                Matteløser
               </Link>
             </li>
             <li>
@@ -159,7 +134,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         <div className="mt-4">
           <Button 
             onClick={() => {
-              router.push('/dashboard');
+              router.push('/write');
               onClose();
             }}
             className="w-full bg-[#06f] hover:bg-blue-700 text-white"

@@ -21,13 +21,13 @@ export async function GET(request: Request) {
     })
     
     // Redirect to dashboard after successful authentication
-    return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+    return NextResponse.redirect(`${requestUrl.origin}/write`)
   } else if (code) {
     try {
       await supabase.auth.exchangeCodeForSession(code)
       
       // Redirect to dashboard after successful authentication
-      return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+      return NextResponse.redirect(`${requestUrl.origin}/write`)
     } catch (error) {
       console.error('Error during authentication:', error)
       // Redirect to login page with error message

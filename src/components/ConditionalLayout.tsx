@@ -5,13 +5,11 @@ import { usePathname } from 'next/navigation'
 import { Navbar } from "@/components/Navbar"
 import WriteSidePanel from "@/components/WriteSidePanel"
 import Upgrade from "@/components/Upgrade"
-import WriterNav from "@/components/WriterNav"
 import { motion } from 'framer-motion'
 
 export default function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isWritePage = pathname?.startsWith('/write');
-  const isHomePage = pathname === '/';
   const showWriteSidePanel = isWritePage;
   const [isSidePanelMinimized, setIsSidePanelMinimized] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
@@ -31,16 +29,15 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
   }, []);
 
   const handleMinimizeChange = (isMinimized: boolean) => {
-    console.log('handleMinimizeChange:', isMinimized)
     setIsSidePanelMinimized(isMinimized);
   };
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-gray-900">
       {showWriteSidePanel && (
-        <WriteSidePanel 
-          onMinimizeChange={handleMinimizeChange} 
-          onUpgradeClick={() => setIsUpgradeOpen(true)} 
+        <WriteSidePanel
+          onMinimizeChange={handleMinimizeChange}
+          onUpgradeClick={() => setIsUpgradeOpen(true)}
           initialMinimizedState={isMobileView}
         />
       )}
@@ -49,7 +46,7 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
         <div className={`flex flex-1 ${!showWriteSidePanel ? 'pt-16' : ''}`}>
           <motion.main
             className="flex-1 w-full bg-white dark:bg-gray-900"
-            animate={{ 
+            animate={{
               marginLeft: showWriteSidePanel
                 ? isSidePanelMinimized
                   ? '3rem'
@@ -63,10 +60,10 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
         </div>
       </div>
       {showWriteSidePanel && (
-        <Upgrade 
-          isOpen={isUpgradeOpen} 
-          onClose={() => setIsUpgradeOpen(false)} 
-          isSidePanelMinimized={isSidePanelMinimized} 
+        <Upgrade
+          isOpen={isUpgradeOpen}
+          onClose={() => setIsUpgradeOpen(false)}
+          isSidePanelMinimized={isSidePanelMinimized}
         />
       )}
     </div>

@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { X, FileText, Settings, ChevronDownIcon, InfoIcon, Loader2 } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { X, FileText, Settings, ChevronDownIcon, InfoIcon, Loader2, HelpCircle } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -96,14 +96,47 @@ const ExtraOption: React.FC<ExtraOptionProps> = ({ id, label, checked, onChange,
   </div>
 )
 
+async function performBingSearch(query: string) {
+  console.log('Performing Bing search for query:', query);
+  try {
+    console.log('Fetching web search results...');
+    const webResponse = await fetch(`/api/bing-search?query=${encodeURIComponent(query)}`);
+    console.log('Fetching news search results...');
+    const newsResponse = await fetch(`/api/bing-search?query=${encodeURIComponent(query)}&searchType=news`);
+    
+    console.log('Web search response status:', webResponse.status);
+    console.log('News search response status:', newsResponse.status);
+
+    if (!webResponse.ok || !newsResponse.ok) {
+      throw new Error('Bing search failed');
+    }
+    
+    const webData = await webResponse.json();
+    const newsData = await newsResponse.json();
+    
+    console.log('Bing web search results:', webData);
+    console.log('Bing news search results:', newsData);
+    
+    const webUrls = webData.webPages?.map((page: any) => page.url).join(',') || '';
+    const newsUrls = newsData.newsArticles?.map((article: any) => article.url).join(',') || '';
+    
+    console.log('Extracted Web URLs:', webUrls);
+    console.log('Extracted News URLs:', newsUrls);
+    
+    return { webUrls, newsUrls };
+  } catch (error) {
+    console.error('Error performing Bing search:', error);
+    return { webUrls: '', newsUrls: '' };
+  }
+}
+
 export default function WritePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  
   const [prompt, setPrompt] = useState('')
   const [promptQuality, setPromptQuality] = useState('')
   const [hasTyped, setHasTyped] = useState(false)
-  const [outlineType, setOutlineType] = useState('no-outline')
+  const [outlineType, setOutlineType] = useState('standard')
   const [isLoading, setIsLoading] = useState(false)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const [articleType, setArticleType] = useState('Standard artikkel')
@@ -131,11 +164,24 @@ export default function WritePage() {
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false)
   const [wordCount, setWordCount] = useState<number>(1500)
   const [isWordCountValid, setIsWordCountValid] = useState(true)
+  const [fetchFromWeb, setFetchFromWeb] = useState(false)
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null)
+  const [submitButtonText, setSubmitButtonText] = useState('Skriv')
+  const [webSearchStage, setWebSearchStage] = useState(0)
+  const [chatUuid, setChatUuid] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const tooltipContent = {
+    'no-outline': "Du starter med et tomt dokument som AI kan hjelpe deg med.",
+    'standard': "Du får levert et eksempel utkast du kan jobbe videre med",
+    'creative': "Du får et utkast med kreative titler du kan jobbe videre med"
+  };
 
   const radioOptions: RadioOption[] = [
+    { value: 'standard', label: 'Standard overskrifter', description: 'AI skriver et utkast for deg med enkle overskrifter' },
+    { value: 'creative', label: 'Kreative overskrifter', description: 'AI skriver et utkast for deg med kreative overskrifter' },
     { value: 'no-outline', label: 'Blanke ark', description: 'Start med et tomt dokument' },
-    { value: 'standard', label: 'Standard overskrifter', description: 'Legg til standard overskrifter (Introduksjon, Metoder, Resultater osv.)' },
-    { value: 'creative', label: 'Kreative overskrifter', description: 'AI vil generere overskrifter basert på din dokumentoppgave' },
   ]
 
   useEffect(() => {
@@ -166,6 +212,48 @@ export default function WritePage() {
     // Check if the form is valid (prompt is not empty and an outline type is selected)
     setIsFormValid(prompt.trim() !== '' && outlineType !== '')
   }, [prompt, outlineType])
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isSubmitting && fetchFromWeb) {
+      interval = setInterval(() => {
+        setWebSearchStage((prevStage) => (prevStage + 1) % 3);
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [isSubmitting, fetchFromWeb]);
+
+  useEffect(() => {
+    if (isSubmitting && fetchFromWeb) {
+      switch (webSearchStage) {
+        case 0:
+          setSubmitButtonText('Søker på nett..');
+          break;
+        case 1:
+          setSubmitButtonText('Fant nyttig data..');
+          break;
+        case 2:
+          setSubmitButtonText('Tenker..');
+          break;
+      }
+    } else if (!isSubmitting) {
+      setSubmitButtonText('Skriv');
+    }
+  }, [isSubmitting, fetchFromWeb, webSearchStage]);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const handleInput = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 250)}px`;
+        setIsExpanded(textarea.scrollHeight > 48); // 48px is the initial height (h-12)
+      };
+
+      textarea.addEventListener('input', handleInput);
+      return () => textarea.removeEventListener('input', handleInput);
+    }
+  }, []);
 
   const fetchSitemaps = async (email: string) => {
     try {
@@ -230,6 +318,45 @@ export default function WritePage() {
   }
 
   const renderArticleTypeFields = () => {
+    const renderToggleWithTooltip = (id: string, label: string, checked: boolean, onChange: (checked: boolean) => void, tooltipText: string) => (
+      <div className="flex items-center space-x-2 mt-4 relative">
+        <Switch
+          id={id}
+          checked={checked}
+          onCheckedChange={onChange}
+        />
+        <Label 
+          htmlFor={id} 
+          className="text-sm font-medium text-gray-900 dark:text-white flex items-center"
+          onMouseEnter={() => setActiveTooltip(id)}
+          onMouseLeave={() => setActiveTooltip(null)}
+        >
+          {label}
+          <HelpCircle className="h-4 w-4 ml-1 text-gray-500" />
+        </Label>
+        {activeTooltip === id && (
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs rounded py-1 px-2 shadow-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-center">
+              {tooltipText}
+            </div>
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white dark:border-t-gray-800"></div>
+          </div>
+        )}
+      </div>
+    )
+
+    const commonFields = (
+      <>
+        {renderToggleWithTooltip(
+          `fetchFromWeb-${articleType.toLowerCase().replace(' ', '-')}`,
+          "Bruk innhold fra nettet",
+          fetchFromWeb,
+          setFetchFromWeb,
+          "Vi finner relevant informasjon på nettet som er relevant til tema"
+        )}
+      </>
+    )
+
     switch (articleType) {
       case 'Studentoppgave':
         return (
@@ -321,6 +448,7 @@ export default function WritePage() {
             {!isWordCountValid && (
               <p className="text-red-500 text-sm mt-1">Antall ord må være mellom 1 og 12,288.</p>
             )}
+            {commonFields}
           </>
         )
       case 'SEO-artikkel':
@@ -329,7 +457,7 @@ export default function WritePage() {
             <Label htmlFor="project" className="text-gray-900 dark:text-white">Prosjekt</Label>
             <Select onValueChange={setSelectedProject} value={selectedProject}>
               <SelectTrigger className="w-full mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600">
-                <SelectValue placeholder="Velg prosjekt (valgfritt)" />
+                <SelectValue placeholder="Velg prosjekt" />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-gray-800 z-[10000]" position="popper" sideOffset={5}>
                 {projectFolders.length > 0 ? (
@@ -350,7 +478,8 @@ export default function WritePage() {
                 <SelectValue placeholder="Velg tone" />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-gray-800 z-[10000]" position="popper" sideOffset={5}>
-                <SelectItem value="formal" className="text-gray-900 dark:text-gray-100">Formell</SelectItem>
+                <SelectItem value="professional" className="text-gray-900 dark:text-gray-100">Profesjonell</SelectItem>
+                <SelectItem value="friendly" className="text-gray-900 dark:text-gray-100">Vennlig</SelectItem>
                 <SelectItem value="casual" className="text-gray-900 dark:text-gray-100">Uformell</SelectItem>
                 <SelectItem value="humorous" className="text-gray-900 dark:text-gray-100">Humoristisk</SelectItem>
                 <SelectItem value="serious" className="text-gray-900 dark:text-gray-100">Seriøs</SelectItem>
@@ -384,78 +513,23 @@ export default function WritePage() {
               </SelectContent>
             </Select>
             
-            <Label htmlFor="description" className="text-gray-900 dark:text-white">Artikkelbeskrivelse</Label>
+            <Label htmlFor="description" className="text-gray-900 dark:text-white">Beskrivelse og mål</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Beskriv hva artikkelen vil handle om"
+              placeholder="Gi tydelig beskrivelse av artikkelen og hva du ønsker og oppnå"
               rows={4}
               className="mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
             />
             
-            <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-white">Ekstra alternativer</h3>
-            <ExtraOption
-              id="include-sources"
-              label="Inkluder kilder"
-              checked={includeSources}
-              onChange={handleIncludeSourcesChange}
-              tooltip="Legg til kildehenvisninger for å støtte påstander og gi kredibilitet til artikkelen."
-            >
-              {includeSources && (
-                <div className="flex items-center ml-4">
-                  <label htmlFor="number-of-sources" className="mr-2 text-sm text-gray-700 dark:text-gray-300">
-                    Antall kilder:
-                  </label>
-                  <Input
-                    id="number-of-sources"
-                    type="number"
-                    min="1"
-                    max="5"
-                    value={numberOfSources}
-                    onChange={handleNumberOfSourcesChange}
-                    className="w-16 text-center bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
-                  />
-                </div>
-              )}
-            </ExtraOption>
-            <ExtraOption
-              id="enable-web-search"
-              label="Aktiver websøk"
-              checked={enableWebSearch}
-              onChange={setEnableWebSearch}
-              tooltip="Tillat AI-en å søke på nettet for oppdatert og relevant informasjon til artikkelen."
-              disabled={includeSources}
-            />
-            
-            <Label htmlFor="snippet" className="block mt-4 mb-2 text-gray-900 dark:text-white">Kapsler</Label>
-            <Select onValueChange={setSelectedSnippet} value={selectedSnippet || undefined}>
-              <SelectTrigger className="w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600">
-                <SelectValue placeholder="Velg en kapsel" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800 z-[10000]" position="popper" sideOffset={5}>
-                {snippets.length > 0 ? (
-                  snippets.map((snippet) => (
-                    <SelectItem key={snippet.snippet_id} value={snippet.snippet_id} className="text-gray-900 dark:text-gray-100">
-                      {snippet.title}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="no_snippets" className="text-gray-900 dark:text-gray-100">Du har ingen kapsler</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-            
-            <div className="flex items-center space-x-2 mt-4">
-              <Switch
-                id="use-local-links"
-                checked={useLocalLinks}
-                onCheckedChange={setUseLocalLinks}
-              />
-              <Label htmlFor="use-local-links" className="text-sm font-medium text-gray-900 dark:text-white">
-                Bruk lokale lenker
-              </Label>
-            </div>
+            {renderToggleWithTooltip(
+              "use-local-links",
+              "Bruk lokale lenker",
+              useLocalLinks,
+              setUseLocalLinks,
+              "Vi interlinker artikkelen din basert på din nettside"
+            )}
             
             <Label htmlFor="sitemap" className="text-gray-900 dark:text-white">Sitemap</Label>
             <Select onValueChange={setSelectedSitemap} value={selectedSitemap || ''} disabled={!useLocalLinks}>
@@ -474,6 +548,7 @@ export default function WritePage() {
                 )}
               </SelectContent>
             </Select>
+            {commonFields}
           </>
         )
       case 'Standard artikkel':
@@ -516,6 +591,7 @@ export default function WritePage() {
             {!isWordCountValid && (
               <p className="text-red-500 text-sm mt-1">Antall ord må være mellom 1 og 12,288.</p>
             )}
+            {commonFields}
           </>
         )
       default:
@@ -552,12 +628,28 @@ export default function WritePage() {
     const id = uuidv4();
     
     try {
+      let webUrls = '';
+      let newsUrls = '';
+
+      if (fetchFromWeb) {
+        const searchResults = await performBingSearch(prompt);
+        webUrls = searchResults.webUrls;
+        newsUrls = searchResults.newsUrls;
+      }
+
       let formData: any = {
         id,
         prompt,
         outline_type: outlineType,
         article_type: articleType,
+        fetch_from_web: fetchFromWeb,
+        // ... other fields
       };
+
+      if (fetchFromWeb) {
+        formData.search_urls = webUrls;
+        formData.search_urls_news = newsUrls;
+      }
 
       // Add fields specific to each article type
       if (articleType === 'SEO-artikkel') {
@@ -570,7 +662,6 @@ export default function WritePage() {
           language,
           include_sources: includeSources,
           number_of_sources: numberOfSources,
-          selected_snippet: selectedSnippet,
           use_local_links: useLocalLinks,
           sitemap_id: selectedSitemap,
         };
@@ -588,17 +679,32 @@ export default function WritePage() {
 
       console.log('Form data before submission:', formData);
 
-      const response = await fetch('/api/store-prompt', {
+      // Store prompt
+      const storePromptResponse = await fetch('/api/store-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
+
+      if (!storePromptResponse.ok) {
+        const errorData = await storePromptResponse.json();
         throw new Error(`Failed to store prompt: ${JSON.stringify(errorData)}`);
       }
-      
+
+      // Generate questions
+      console.log('Generating questions for topic:', prompt);
+      const generateQuestionsResponse = await fetch('/api/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: prompt, contentId: id }),
+      });
+
+      if (!generateQuestionsResponse.ok) {
+        console.error('Failed to generate questions:', await generateQuestionsResponse.text());
+      } else {
+        console.log('Questions generated successfully');
+      }
+
       // Navigate to the editor page with a query parameter to start generation
       router.push(`/write/${id}${outlineType !== 'no-outline' ? '?generate=true' : ''}`);
     } catch (error) {
@@ -626,12 +732,15 @@ export default function WritePage() {
               </h2>
             </div>
             <div className="relative mb-4">
-              <Input
+              <Textarea
+                ref={textareaRef}
                 placeholder="f.eks. en oppgave om global oppvarming"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="mb-2 h-12 bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
-                required // Add this line to make the field required
+                className={`mb-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 transition-all duration-300 ease-in-out ${
+                  isExpanded ? 'h-24 documents-list' : 'h-12'
+                } max-h-[250px] overflow-y-auto`}
+                required
               />
               {hasTyped && (
                 <>
@@ -648,15 +757,17 @@ export default function WritePage() {
                 </>
               )}
             </div>
-            <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Generer disposisjon</h3>
+            <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Velg disposisjon</h3>
             <div className="space-y-2">
               {radioOptions.map((option, index) => (
                 <div 
                   key={option.value}
                   className={`flex items-center space-x-2 border rounded-md p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${outlineType === option.value ? 'border-blue-500 bg-blue-50 dark:bg-blue-900' : 'border-gray-300 dark:border-gray-600'}`}
                   onClick={() => setOutlineType(option.value)}
+                  onMouseEnter={() => setActiveTooltip(option.value)}
+                  onMouseLeave={() => setActiveTooltip(null)}
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 relative">
                     <input
                       type="radio"
                       id={option.value}
@@ -664,21 +775,11 @@ export default function WritePage() {
                       value={option.value}
                       checked={outlineType === option.value}
                       onChange={() => setOutlineType(option.value)}
-                      className="sr-only" // Hide the default radio button
-                      required // Add this line to make selecting an option required
+                      className="sr-only"
+                      required
                     />
                     <div className={`w-4 h-4 rounded-full border-2 ${outlineType === option.value ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600'}`} />
                     {index === 0 && (
-                      <svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="0.5" y="0.5" width="35" height="39" rx="3.5" fill="white"></rect>
-                        <rect x="0.5" y="0.5" width="35" height="39" rx="3.5" stroke="#E4E4E7"></rect>
-                        <rect x="6" y="8" width="24" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
-                        <rect opacity="0.1" x="6" y="15.1429" width="20" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
-                        <rect opacity="0.1" x="6" y="22.2857" width="24" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
-                        <rect opacity="0.1" x="6" y="29.4286" width="16" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
-                      </svg>
-                    )}
-                    {index === 1 && (
                       <svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect x="0.5" y="0.5" width="35" height="39" rx="3.5" fill="white"></rect>
                         <rect x="0.5" y="0.5" width="35" height="39" rx="3.5" stroke="#E4E4E7"></rect>
@@ -688,7 +789,7 @@ export default function WritePage() {
                         <rect x="6" y="29.4286" width="16" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
                       </svg>
                     )}
-                    {index === 2 && (
+                    {index === 1 && (
                       <svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect x="0.5" y="0.5" width="35" height="39" rx="3.5" fill="white"></rect>
                         <rect x="0.5" y="0.5" width="35" height="39" rx="3.5" stroke="#E4E4E7"></rect>
@@ -702,24 +803,73 @@ export default function WritePage() {
                         <path d="M23.9783 9.95191C24.0118 9.82756 24.1882 9.82756 24.2217 9.95191L24.5266 11.0845C24.5383 11.1279 24.5722 11.1617 24.6155 11.1734L25.7481 11.4784C25.8725 11.5118 25.8725 11.6882 25.7481 11.7217L24.6155 12.0266C24.5722 12.0383 24.5383 12.0722 24.5266 12.1156L24.2217 13.2481C24.1882 13.3725 24.0118 13.3725 23.9783 13.2481L23.6734 12.1156C23.6617 12.0722 23.6278 12.0383 23.5845 12.0266L22.4519 11.7217C22.3276 11.6882 22.3276 11.5118 22.4519 11.4784L23.5845 11.1734C23.6278 11.1617 23.6617 11.1279 23.6734 11.0845L23.9783 9.95191Z" fill="#A1A1AA"></path>
                       </svg>
                     )}
+                    {index === 2 && (
+                      <svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="0.5" y="0.5" width="35" height="39" rx="3.5" fill="white"></rect>
+                        <rect x="0.5" y="0.5" width="35" height="39" rx="3.5" stroke="#E4E4E7"></rect>
+                        <rect x="6" y="8" width="24" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
+                        <rect opacity="0.1" x="6" y="15.1429" width="20" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
+                        <rect opacity="0.1" x="6" y="22.2857" width="24" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
+                        <rect opacity="0.1" x="6" y="29.4286" width="16" height="2.85714" rx="0.8" fill="#A1A1AA"></rect>
+                      </svg>
+                    )}
                   </div>
                   <Label className="flex-grow cursor-pointer pl-2.5">
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">{option.label}</div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{option.description}</p>
                   </Label>
+                  {activeTooltip === option.value && (
+                    <div className="absolute right-full mr-2 w-48 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs rounded py-1 px-2 shadow-lg border border-gray-200 dark:border-gray-700">
+                      <div className="text-center">
+                        {tooltipContent[option.value as keyof typeof tooltipContent]}
+                      </div>
+                      <div className="absolute top-1/2 right-0 transform translate-x-1/2 -translate-y-1/2 border-8 border-transparent border-l-white dark:border-l-gray-800"></div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
             
-            <Button 
-              type="button" 
-              variant="link" 
-              className="mt-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-0"
-              onClick={() => setShowAdvancedSettings(true)}
-            >
-              Avanserte instillinger
-            </Button>
-            
+            {/* Updated div for "Bruk innhold fra nett" and "Instillinger" */}
+            <div className="flex justify-between items-center mt-4">
+              <div className="flex items-center space-x-2 relative">
+                <Switch
+                  id="fetchFromWeb-main"
+                  checked={fetchFromWeb}
+                  onCheckedChange={setFetchFromWeb}
+                />
+                <Label 
+                  htmlFor="fetchFromWeb-main" 
+                  className="text-sm font-medium text-gray-900 dark:text-white flex items-center"
+                  onMouseEnter={() => setActiveTooltip('fetchFromWeb-main')}
+                  onMouseLeave={() => setActiveTooltip(null)}
+                >
+                  Bruk innhold fra nettet
+                  <HelpCircle className="h-4 w-4 ml-1 text-gray-500" />
+                  <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-md border border-gray-200 dark:border-gray-600 ml-2">
+                    +10 sek
+                  </span>
+                </Label>
+                {activeTooltip === 'fetchFromWeb-main' && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs rounded py-1 px-2 shadow-lg border border-gray-200 dark:border-gray-700">
+                    <div className="text-center">
+                      Vi finner relevant informasjon på nettet som er relevant til tema
+                    </div>
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white dark:border-t-gray-800"></div>
+                  </div>
+                )}
+              </div>
+              <Button 
+                type="button" 
+                variant="link" 
+                className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-0 flex items-center"
+                onClick={() => setShowAdvancedSettings(true)}
+              >
+                Instillinger
+                <Settings className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+
             <button
               type="submit"
               className={`w-full mt-4 bg-[#146ef5] text-white font-bold py-4 px-6 rounded transition duration-300 ease-in-out flex items-center justify-center space-x-2 shadow-[0_4px_4px_#08080814,0_1px_2px_#08080833,inset_0_6px_12px_#ffffff1f,inset_0_1px_1px_#fff3] ${
@@ -727,12 +877,13 @@ export default function WritePage() {
                   ? 'hover:bg-[#0055d4] hover:shadow-[0_1px_1px_#08080814,0_1px_1px_#08080833,inset_0_6px_12px_#ffffff1f,inset_0_1px_1px_#fff3]'
                   : 'opacity-50 cursor-not-allowed'
               }`}
-              disabled={!isFormValid || isLoading || isSubmitting}
+              disabled={!isFormValid || isSubmitting}
+              onClick={handleSubmit}
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  <span>Genererer...</span>
+                  <span>{submitButtonText}</span>
                 </>
               ) : (
                 <span>Skriv</span>

@@ -86,4 +86,9 @@ export class WordCountService {
   public getWordsRemaining(): number {
     return this.wordsRemaining;
   }
+
+  public async refreshAndGetWordsRemaining(): Promise<number> {
+    await this.fetchUserData();
+    return this.wordsRemaining;
+  }
 }

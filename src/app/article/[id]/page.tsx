@@ -333,6 +333,17 @@ export default function ArticlePage() {
     });
   }, [showUpgraded]);
 
+
+
+// Add this function near your other handler functions
+const handleCitationAdded = (citationId: string) => {
+  console.log('Citation added:', citationId);
+  // Implement any logic you need when a citation is added
+  // For example, you might want to update some state or perform an action
+};
+
+
+
   const handleAddElement = useCallback((type: string, index: number) => {
     setContentBlocks(prevBlocks => {
       const newBlocks = [...prevBlocks];
@@ -880,6 +891,7 @@ export default function ArticlePage() {
         onAddLink={handleAddLink}
         onReplaceSelection={handleReplaceSelection}
         onInsertBelow={handleInsertBelow}
+        onCitationAdded={handleCitationAdded}  // Add this line
       />
     </div>
   )

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { supabase } from '@/lib/supabase'
 import { summarizeText } from '@/services/library-summarize-ai'
 import { uploadPdf } from '@/services/PdfUploadService';
+import { v4 as uuidv4 } from 'uuid';
+import Image from 'next/image'
 
 interface LibraryPanelProps {
   isOpen: boolean;
@@ -285,7 +287,11 @@ export default function LibraryPanel({ isOpen, onClose, articleId, addToArticle 
     setIsUploading(true);
 
     try {
-      const newSnippet = await uploadPdf(file, articleId);
+      const newSnippet = await uploadPdf({
+        file,
+        articleId,
+        chatUuid: uuidv4() // Add this import if not already present: import { v4 as uuidv4 } from 'uuid';
+      });
       setSnippets(prevSnippets => [...prevSnippets, newSnippet]);
     } catch (error) {
       console.error('Error uploading PDF:', error);
@@ -381,7 +387,13 @@ export default function LibraryPanel({ isOpen, onClose, articleId, addToArticle 
                         {snippet.is_pdf ? (
                           <FileIcon className="w-4 h-4 mr-2 text-red-500" />
                         ) : (
-                          <img src={snippet.favicon_url} alt="Favicon" className="w-4 h-4 mr-2" />
+                          <Image 
+  src={snippet.favicon_url} 
+  alt="Favicon" 
+  width={16} 
+  height={16} 
+  className="mr-2"
+/>
                         )}
                         <h3 className="font-semibold text-gray-900 dark:text-white">{snippet.title}</h3>
                       </div>
@@ -435,28 +447,40 @@ export default function LibraryPanel({ isOpen, onClose, articleId, addToArticle 
                               Se kilde
                             </Button>
                           )}
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-xs flex items-center bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-                            onClick={() => snippet.ai_summary ? toggleSummary(snippet.id) : handleSummarize(snippet)}
-                          >
-                            {summarizingSnippets.has(snippet.id) ? (
-                              <Loader className="h-3 w-3 mr-1 animate-spin" />
-                            ) : snippet.ai_summary ? (
-                              expandedSummaries.has(snippet.id) ? (
-                                <ChevronUp className="h-3 w-3 mr-1" />
+                          <div className="relative">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-xs flex items-center bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+                              onClick={() => snippet.ai_summary ? toggleSummary(snippet.id) : handleSummarize(snippet)}
+                              onMouseEnter={() => setActiveTooltip(snippet.id)}
+                              onMouseLeave={() => setActiveTooltip(null)}
+                            >
+                              {summarizingSnippets.has(snippet.id) ? (
+                                <Loader className="h-3 w-3 mr-1 animate-spin" />
+                              ) : snippet.ai_summary ? (
+                                expandedSummaries.has(snippet.id) ? (
+                                  <ChevronUp className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <ChevronDown className="h-3 w-3 mr-1" />
+                                )
                               ) : (
-                                <ChevronDown className="h-3 w-3 mr-1" />
-                              )
-                            ) : (
-                              <FileText className="h-3 w-3 mr-1" />
+                                <FileText className="h-3 w-3 mr-1" />
+                              )}
+                              {summarizingSnippets.has(snippet.id) ? 'Oppsummerer...' : 
+                               snippet.ai_summary ? 
+                                 (expandedSummaries.has(snippet.id) ? 'Lukk oppsummering' : 'Se oppsummering') 
+                               : 'Oppsumer'}
+                            </Button>
+                            {activeTooltip === snippet.id && !snippet.ai_summary && (
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs rounded py-1 px-2 shadow-lg border border-gray-200 dark:border-gray-700">
+                                <div className="text-center">
+                                  Innhold.AI vil oppsumere hele artikkelen og finne relevante utdrag du kan bruke
+                                </div>
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white dark:border-t-gray-800"></div>
+                              </div>
                             )}
-                            {summarizingSnippets.has(snippet.id) ? 'Oppsummerer...' : 
-                             snippet.ai_summary ? 
-                               (expandedSummaries.has(snippet.id) ? 'Lukk oppsummering' : 'Se oppsummering') 
-                             : 'Oppsummer'}
-                          </Button>
+                          </div>
                         </div>
                         <TooltipProvider>
                           <Tooltip>
@@ -560,15 +584,27 @@ export default function LibraryPanel({ isOpen, onClose, articleId, addToArticle 
                               <Copy className="h-3 w-3 mr-1" />
                               Kopier
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-xs flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                              onClick={() => handleAddToArticle(snippet.ai_summary!)}
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Legg til i artikkel
-                            </Button>
+                            <div className="relative">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-xs flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                onClick={() => handleAddToArticle(snippet.ai_summary!)}
+                                onMouseEnter={() => setActiveTooltip(`add-to-article-${snippet.id}`)}
+                                onMouseLeave={() => setActiveTooltip(null)}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Legg til i artikkel
+                              </Button>
+                              {activeTooltip === `add-to-article-${snippet.id}` && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs rounded py-1 px-2 shadow-lg border border-gray-200 dark:border-gray-700">
+                                  <div className="text-center">
+                                    Oppsummeringen blir lagt til i dokumentet ditt.
+                                  </div>
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white dark:border-t-gray-800"></div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </motion.div>
                       )}
@@ -580,23 +616,37 @@ export default function LibraryPanel({ isOpen, onClose, articleId, addToArticle 
           )}
         </div>
         <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex justify-end">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => document.getElementById('pdf-upload')?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? <Loader className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Last opp PDF</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => document.getElementById('pdf-upload')?.click()}
+              disabled={isUploading}
+              className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+              onMouseEnter={() => setActiveTooltip('pdf-upload')}
+              onMouseLeave={() => setActiveTooltip(null)}
+            >
+              {isUploading ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin mr-2" />
+                  Laster opp...
+                </>
+              ) : (
+                <>
+                  <FileUp className="h-4 w-4 mr-2" />
+                  Last opp PDF
+                </>
+              )}
+            </Button>
+            {activeTooltip === 'pdf-upload' && (
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs rounded py-1 px-2 shadow-lg border border-gray-200 dark:border-gray-700">
+                <div className="text-center">
+                  Last opp PDF som AI vil oppsummere. Kan gjennbrukes i eget dokument
+                </div>
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white dark:border-t-gray-800"></div>
+              </div>
+            )}
+          </div>
           <input
             type="file"
             id="pdf-upload"

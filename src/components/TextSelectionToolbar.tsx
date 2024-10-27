@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Wand2, Book, Type, Bold, Italic, Underline, Link, ChevronDown, Heading1, Heading2, Heading3, List, ListOrdered, ChevronRight, Repeat, Minimize2, ArrowRightCircle, Languages, FileText, Scale, Check, ArrowDown, RotateCcw, Trash2, Loader2 } from 'lucide-react';
+import { Wand2, Book, Type, Bold, Italic, Underline, ChevronLeft, Link, ChevronDown, Heading1, Heading2, Heading3, List, ListOrdered, ChevronRight, Repeat, Minimize2, ArrowRightCircle, Languages, FileText, Scale, Check, ArrowDown, RotateCcw, Trash2, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card"
 import {
   Tooltip,
   TooltipContent,
@@ -30,7 +31,8 @@ interface TextSelectionToolbarProps {
   onAddLink: () => void;
   onReplaceSelection: (newText: string) => void;
   onInsertBelow: (newText: string) => void;
-  articleId?: string; // Make this prop optional
+  articleId?: string;
+  onCitationAdded: (citationId: string) => void; // Add this line
 }
 
 interface SelectionInfo {
@@ -50,9 +52,12 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
   onReplaceSelection,
   onInsertBelow,
   articleId,
+  onCitationAdded, // Add this line
 }) => {
   const { data: session } = useSession();
   // State declarations
+  const [aiResponses, setAiResponses] = useState<string[]>([]);
+  const [currentResponseIndex, setCurrentResponseIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [aiPosition, setAiPosition] = useState({ top: 0, left: 0, width: 0 });
@@ -77,6 +82,8 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const snlLookupRef = useRef<HTMLDivElement>(null);
   const mainToolbarRef = useRef<HTMLDivElement>(null);
+  const aiToolbarContentRef = useRef<HTMLDivElement>(null);
+  const aiToolbarContainerRef = useRef<HTMLDivElement>(null);
 
   // Callbacks
   const updatePosition = useCallback(() => {
@@ -163,17 +170,18 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
     }
   }, [selectedRange, isTypingInSNLLookup]);
 
-  const handleCite = useCallback((citation: string, fullCitation: string, result: SNLResult) => {
+  const handleCite = useCallback(async (citation: string, fullCitation: string, result: SNLResult) => {
     if (selectedRange) {
       const text = selectedRange.toString();
-      const citationId = uuidv4(); // Generate a new UUID here
+      const citationId = uuidv4();
       
-      console.log('Attempting to add citation to Supabase:', { articleId, citationId, citation, fullCitation, result });
-
-      // Add citation to Quill editor with the same ID
+      // Add citation to Quill editor and Supabase
       onCite(text, citation, fullCitation, result, citationId);
+      
+      // Pass the citationId back to SNLLookup
+      onCitationAdded(citationId);
     }
-  }, [selectedRange, onCite, articleId]);
+  }, [selectedRange, onCite, articleId, onCitationAdded]);
 
   const updateKildehenvisning = (fullCitation: string) => {
     // This function will need to be implemented in your main article editing component
@@ -181,18 +189,29 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
   };
 
   const handleClickOutside = useCallback((event: MouseEvent) => {
-    const isClickInsideDropdown = (event.target as Element).closest('[role="menu"]') !== null;
-    const isClickInsideSNLLookup = snlLookupRef.current && snlLookupRef.current.contains(event.target as Node);
-    const isClickInsideMainToolbar = mainToolbarRef.current && mainToolbarRef.current.contains(event.target as Node);
-    const isClickInsideSNLLookupInput = (event.target as Element).tagName.toLowerCase() === 'input' && 
-      (event.target as Element).getAttribute('placeholder') === 'Søk i Store norske leksikon...';
+    const target = event.target as Element;
+    
+    const isClickInsideDropdown = target.closest('[role="menu"]') !== null;
+    const isClickInsideSNLLookup = snlLookupRef.current && snlLookupRef.current.contains(target);
+    const isClickInsideMainToolbar = mainToolbarRef.current && mainToolbarRef.current.contains(target);
+    const isClickInsideAIToolbarContent = aiToolbarContentRef.current && aiToolbarContentRef.current.contains(target);
+    const isClickInsideAIToolbarContainer = aiToolbarContainerRef.current && aiToolbarContainerRef.current.contains(target);
+    const isClickDirectlyOnAIToolbarContainer = target.classList.contains('fixed') && 
+                                                target.classList.contains('z-50') && 
+                                                target.classList.contains('flex') && 
+                                                target.classList.contains('flex-col') && 
+                                                target.classList.contains('space-y-4');
+    const isClickInsideSNLLookupInput = target.tagName.toLowerCase() === 'input' && 
+      target.getAttribute('placeholder') === 'Søk i Store norske leksikon...';
     
     if (
-      !isClickInsideDropdown &&
+      isClickDirectlyOnAIToolbarContainer ||
+      (!isClickInsideDropdown &&
       !isClickInsideSNLLookup &&
       !isClickInsideMainToolbar &&
+      !isClickInsideAIToolbarContent &&
       !isClickInsideSNLLookupInput &&
-      !(event.target as Element).closest('.article-content')
+      !target.closest('.article-content'))
     ) {
       setShowAIToolbar(false);
       setShowSNLLookup(false);
@@ -247,16 +266,30 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
     }
     if (aiCommand.trim() === '' || isStreaming) return;
     
+    // Restore the selection before processing the command
+    if (selectionRef.current) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.setStart(selectionRef.current.startContainer!, selectionRef.current.startOffset);
+      range.setEnd(selectionRef.current.endContainer!, selectionRef.current.endOffset);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+    
     const wordCountService = WordCountService.getInstance();
     const estimatedWordCount = aiCommand.split(/\s+/).length * 2; // Rough estimate
-
+  
     if (!(await wordCountService.checkWordAvailability(estimatedWordCount))) {
       alert('Not enough words remaining in your balance.');
       return;
     }
-
+  
     setIsStreaming(true);
-    setAiResponse('');
+    
+    // Create new empty response and set current index
+    setAiResponses(prev => [...prev, '']);
+    const newIndex = aiResponses.length;
+    setCurrentResponseIndex(newIndex);
     
     const selectedText = selectionRef.current?.text || '';
     const fullPrompt = `${selectedText}\n\n${aiCommand}`;
@@ -264,18 +297,25 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
     setLastAction({ type: 'custom' });
     
     let generatedWordCount = 0;
+    let currentResponse = '';
+
     await streamCompletion(
       fullPrompt,
       (chunk) => {
-        setAiResponse(prev => prev + chunk);
+        currentResponse += chunk;
+        setAiResponses(prev => {
+          const newResponses = [...prev];
+          newResponses[newIndex] = currentResponse;
+          return newResponses;
+        });
         generatedWordCount += chunk.split(/\s+/).length;
       },
       'You are a helpful assistant for writing and editing text.'
     );
-
+  
     await wordCountService.deductWords(generatedWordCount);
     setWordsRemaining(wordCountService.getWordsRemaining());
-
+  
     setIsStreaming(false);
     setAiCommand(''); // Clear the input field after search
   };
@@ -291,23 +331,35 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
   };
 
   const handleReplaceSelection = () => {
-    if (aiResponse) {
-      onReplaceSelection(aiResponse);
-      setAiResponse('');
+    if (aiResponses[currentResponseIndex]) {
+      onReplaceSelection(aiResponses[currentResponseIndex]);
+      setAiResponses([]);
+      setCurrentResponseIndex(0);
       setShowAIToolbar(false);
     }
   };
 
   const handleInsertBelow = () => {
-    if (aiResponse) {
-      onInsertBelow(aiResponse);
-      setAiResponse('');
+    if (aiResponses[currentResponseIndex]) {
+      onInsertBelow(aiResponses[currentResponseIndex]);
+      setAiResponses([]);
+      setCurrentResponseIndex(0);
       setShowAIToolbar(false);
     }
   };
 
   const handleTryAgain = async () => {
     if (isStreaming) return;
+    
+    // Restore the selection before trying again
+    if (selectionRef.current) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.setStart(selectionRef.current.startContainer!, selectionRef.current.startOffset);
+      range.setEnd(selectionRef.current.endContainer!, selectionRef.current.endOffset);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
     
     setIsStreaming(true);
     setAiResponse('');
@@ -363,13 +415,22 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
       e.stopPropagation();
     }
     if (isStreaming) return;
+  
+    // Restore the selection before processing the action
+    if (selectionRef.current) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.setStart(selectionRef.current.startContainer!, selectionRef.current.startOffset);
+      range.setEnd(selectionRef.current.endContainer!, selectionRef.current.endOffset);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
     
     setIsStreaming(true);
-    setAiResponse('');
     
     const selectedText = selectionRef.current?.text || '';
     let prompt = '';
-
+  
     switch (action) {
       case 'improve':
         prompt = `Skriv denne teksten slik at den er enklere å forstå:\n\n${selectedText}`;
@@ -394,28 +455,40 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
     }
     
     const wordCountService = WordCountService.getInstance();
-    const estimatedWordCount = selectedText.split(/\s+/).length * 2; // Rough estimate
-
+    const estimatedWordCount = selectedText.split(/\s+/).length * 2;
+  
     if (!(await wordCountService.checkWordAvailability(estimatedWordCount))) {
       alert('Not enough words remaining in your balance.');
       return;
     }
-
+  
     setLastAction({ type: action, tone });
     
     let generatedWordCount = 0;
+    let currentResponse = '';
+  
+    // Create new empty response and set current index
+    setAiResponses(prev => [...prev, '']);
+    const newIndex = aiResponses.length;
+    setCurrentResponseIndex(newIndex);
+  
     await streamCompletion(
       prompt,
       (chunk) => {
-        setAiResponse(prev => prev + chunk);
+        currentResponse += chunk;
+        setAiResponses(prev => {
+          const newResponses = [...prev];
+          newResponses[newIndex] = currentResponse;
+          return newResponses;
+        });
         generatedWordCount += chunk.split(/\s+/).length;
       },
       'You are a helpful assistant for writing and editing text.'
     );
-
+  
     await wordCountService.deductWords(generatedWordCount);
     setWordsRemaining(wordCountService.getWordsRemaining());
-
+  
     setIsStreaming(false);
     // Close the dropdown menu after action
     const dropdownTrigger = document.querySelector('[aria-expanded="true"]') as HTMLElement;
@@ -468,7 +541,7 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
                   size="sm"
                   variant="ghost"
                   className="flex items-center bg-[#06f] text-white hover:bg-[#05d] px-2 py-1 h-7 text-xs mr-2 group"
-                  disabled={wordsRemaining <= 0}
+                  disabled={wordsRemaining < 50}
                 >
                   <div className="bg-white bg-opacity-10 p-0.5 rounded mr-2 group-hover:bg-opacity-20">
                     <Wand2 className="w-3 h-3 text-white" />
@@ -477,7 +550,7 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="border border-solid bg-[#1e3a8a] text-white shadow-[0_0_10px_rgba(0,0,0,0.1),0_-2px_5px_rgba(0,0,0,0.05)] border-[#ededed] dark:border-[#434343]">
-                {wordsRemaining <= 0 
+               {wordsRemaining < 50 
                   ? "Ingen ord igjen. Vennligst oppgrader kontoen din."
                   : renderTooltip('Rediger, forbedre eller skriv nytt', 'Ctrl + Shift + A')
                 }
@@ -598,6 +671,7 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
 
         {(showAIToolbar || showSNLLookup) && (
           <div 
+            ref={aiToolbarContainerRef}
             className="fixed z-50 flex flex-col space-y-4" 
             style={{ 
               top: `${aiPosition.top}px`, 
@@ -605,157 +679,195 @@ const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
               width: `${aiPosition.width}px` 
             }}
           >
-            {showAIToolbar && (
-              <div className="fixed z-50 flex flex-col space-y-4" style={{
-                top: `${aiPosition.top}px`,
-                left: `${aiPosition.left}px`,
-                width: `${aiPosition.width}px`
-              }}>
-                <div
-                  ref={searchBarRef}
-                  className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-2 flex flex-col space-y-2"
-                >
-                  {aiResponse && (
-                    <div className="text-sm leading-5 font-normal text-zinc-800 dark:text-zinc-200 space-y-3 max-h-52 overflow-y-auto mb-2">
+            <div ref={aiToolbarContentRef}>
+
+
+              {showAIToolbar && (
+                <div className="fixed z-50 flex flex-col space-y-4" style={{
+                  top: `${aiPosition.top}px`,
+                  left: `${aiPosition.left}px`,
+                  width: `${aiPosition.width}px`
+                }}>
+                  <div
+                    ref={searchBarRef}
+                    className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-2 flex flex-col space-y-2"
+                  >
+                    {aiResponses.length > 0 && (
+  <div className="text-sm leading-5 font-normal text-zinc-800 dark:text-zinc-200 space-y-3 max-h-52 overflow-y-auto mb-2">
+    <div>
+      <p>{aiResponses[currentResponseIndex]}</p>
+    </div>
+  </div>
+)}
+                    <div className="w-full flex items-center space-x-2">
+                      {isStreaming ? (
+                        <Loader2 className="w-5 h-5 text-gray-500 dark:text-gray-400 animate-spin" />
+                      ) : (
+                        <Wand2 className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                      )}
+                      <Input
+                        placeholder={aiResponse ? "Fortell AI hva den skal gjøre neste..." : "Skriv inn AI-kommando..."}
+                        className="flex-grow bg-white dark:bg-gray-700 text-black dark:text-white border-0 border-b border-gray-200 dark:border-gray-600 rounded-none shadow-none text-sm placeholder:text-gray-500 focus:outline-none focus:ring-0 focus:border-b focus:border-gray-200 dark:focus:border-gray-600"
+                        value={aiCommand}
+                        onChange={(e) => setAiCommand(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                      />
+
+                      {/* Pagination buttons */}
+        {aiResponses.length > 1 && (
+          <div className="flex justify-center items-center bg-white">
+          <Card className="bg-white shadow-sm rounded-md p-1">
+            <div className="flex items-center space-x-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setCurrentResponseIndex(prev => Math.max(0, prev - 1))}
+                disabled={currentResponseIndex === 0}
+                aria-label="Previous response"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-xs font-medium text-gray-700 min-w-[40px] text-center">
+                {currentResponseIndex + 1} / {aiResponses.length}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setCurrentResponseIndex(prev => Math.min(aiResponses.length - 1, prev + 1))}
+                disabled={currentResponseIndex === aiResponses.length - 1}
+                aria-label="Next response"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </Card>
+        </div>
+        )}
+
+                      <Button
+                        onClick={handleAICommandSubmit}
+                        disabled={aiCommand.trim() === '' || isStreaming}
+                        className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600 h-[32px]"
+                      >
+                        {isStreaming ? 'Tenker...' : 'Send'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {aiResponses.length > 0 && (
+  <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4 flex flex-col space-y-4 w-[300px]">
+    <div className="flex flex-col space-y-1">
+      <Button variant="ghost" onClick={handleReplaceSelection} className="flex items-center justify-start pl-0 py-1 h-auto dark:text-white">
+        <Check className="w-4 h-4 mr-2" />
+        Erstatt valgt tekst
+      </Button>
+      <Button variant="ghost" onClick={handleInsertBelow} className="flex items-center justify-start pl-0 py-1 h-auto dark:text-white">
+        <ArrowDown className="w-4 h-4 mr-2" />
+        Sett inn under
+      </Button>
+      <Button variant="ghost" onClick={handleTryAgain} className="flex items-center justify-start pl-0 py-1 h-auto dark:text-white">
+        <RotateCcw className="w-4 h-4 mr-2" />
+        Prøv igjen
+      </Button>
+      <Button variant="ghost" onClick={handleDiscard} className="flex items-center justify-start pl-0 py-1 h-auto dark:text-white">
+        <Trash2 className="w-4 h-4 mr-2" />
+        Forkast
+      </Button>
+    </div>
+  </div>
+)}
+
+                  {!aiResponses.length && (
+                    <div
+                      ref={aiToolbarRef}
+                      className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4 flex flex-col space-y-4"
+                      style={{ width: '30%', minWidth: '200px' }}
+                    >
                       <div>
-                        <p>{aiResponse}</p>
+                        <h3 className="font-semibold mb-2 text-sm text-black dark:text-white">Rediger eller gjennomgå</h3>
+                        <div className="space-y-1">
+                          <Button variant="ghost" className="w-full justify-start text-xs py-1 h-auto pl-0 dark:text-white" onClick={() => handleAIAction('improve')}>
+                            <Wand2 className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                            Forbedre flyt
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="w-full justify-between text-xs py-1 h-auto pl-0 dark:text-white">
+                                <div className="flex items-center">
+                                  <Repeat className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400 " />
+                                  Omformulere
+                                </div>
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right" sideOffset={5} className="bg-white dark:bg-gray-800" ref={dropdownRef}>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'akademisk', e)}>Akademisk</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'uformelt', e)}>Uformelt</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'overbevisende', e)}>Overbevisende</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'dristig', e)}>Dristig</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'vennlig', e)}>Vennlig</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="w-full justify-between text-xs py-1 h-auto pl-0 dark:text-white">
+                                <div className="flex items-center">
+                                  <Minimize2 className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                                  Forenkle
+                                </div>
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right" sideOffset={5} className="bg-white dark:bg-gray-800">
+                              <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'akademisk', e)}>Akademisk</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'uformelt', e)}>Uformelt</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'overbevisende', e)}>Overbevisende</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'dristig', e)}>Dristig</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'vennlig', e)}>Vennlig</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Button variant="ghost" className="w-full justify-start text-xs py-1 h-auto pl-0 dark:text-white" onClick={() => handleAIAction('expand')}>
+                            <ArrowRightCircle className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                            Gjør lengre
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="w-full justify-between text-xs py-1 h-auto pl-0 dark:text-white">
+                                <div className="flex items-center">
+                                  <Languages className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                                  Oversett
+                                </div>
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right" sideOffset={5} className="bg-white dark:bg-gray-800">
+                              <DropdownMenuItem onClick={() => handleAIAction('Oversett til engelsk')}>Til engelsk</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleAIAction('Oversett til norsk')}>Til norsk</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="font-semibold mt-4 mb-2 text-sm text-black dark:text-white">Generer fra valgt tekst</h3>
+                        <div className="space-y-1">
+                          <Button variant="ghost" className="w-full justify-start text-xs py-1 h-auto pl-0 dark:text-white" onClick={() => handleAIAction('summarize')}>
+                            <FileText className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                            Oppsummer
+                          </Button>
+                          <Button variant="ghost" className="w-full justify-start text-xs py-1 h-auto pl-0 dark:text-white" onClick={() => handleAIAction('counterargument')}>
+                            <Scale className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                            Skriv motargument
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
-                  <div className="w-full flex items-center space-x-2">
-                    {isStreaming ? (
-                      <Loader2 className="w-5 h-5 text-gray-500 dark:text-gray-400 animate-spin" />
-                    ) : (
-                      <Wand2 className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    )}
-                    <Input
-                      placeholder={aiResponse ? "Fortell AI hva den skal gjøre neste..." : "Skriv inn AI-kommando..."}
-                      className="flex-grow bg-white dark:bg-gray-700 text-black dark:text-white border-0 border-b border-gray-200 dark:border-gray-600 rounded-none shadow-none text-sm placeholder:text-gray-500 focus:outline-none focus:ring-0 focus:border-b focus:border-gray-200 dark:focus:border-gray-600"
-                      value={aiCommand}
-                      onChange={(e) => setAiCommand(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                    />
-                    <Button
-                      onClick={handleAICommandSubmit}
-                      disabled={aiCommand.trim() === '' || isStreaming}
-                      className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600 h-[32px]"
-                    >
-                      {isStreaming ? 'Tenker...' : 'Send'}
-                    </Button>
-                  </div>
                 </div>
-
-                {aiResponse && (
-                  <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4 flex flex-col space-y-4 w-[300px]">
-                    <div className="flex flex-col space-y-1">
-                      <Button variant="ghost" onClick={handleReplaceSelection} className="flex items-center justify-start pl-0 py-1 h-auto dark:text-white">
-                        <Check className="w-4 h-4 mr-2" />
-                        Erstatt valgt tekst
-                      </Button>
-                      <Button variant="ghost" onClick={handleInsertBelow} className="flex items-center justify-start pl-0 py-1 h-auto dark:text-white">
-                        <ArrowDown className="w-4 h-4 mr-2" />
-                        Sett inn under
-                      </Button>
-                      <Button variant="ghost" onClick={handleTryAgain} className="flex items-center justify-start pl-0 py-1 h-auto dark:text-white">
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Prøv igjen
-                      </Button>
-                      <Button variant="ghost" onClick={handleDiscard} className="flex items-center justify-start pl-0 py-1 h-auto dark:text-white">
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Forkast
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {!aiResponse && (
-                  <div
-                    ref={aiToolbarRef}
-                    className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4 flex flex-col space-y-4"
-                    style={{ width: '30%', minWidth: '200px' }}
-                  >
-                    <div>
-                      <h3 className="font-semibold mb-2 text-sm text-black dark:text-white">Rediger eller gjennomgå</h3>
-                      <div className="space-y-1">
-                        <Button variant="ghost" className="w-full justify-start text-xs py-1 h-auto pl-0 dark:text-white" onClick={() => handleAIAction('improve')}>
-                          <Wand2 className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
-                          Forbedre flyt
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="w-full justify-between text-xs py-1 h-auto pl-0 dark:text-white">
-                              <div className="flex items-center">
-                                <Repeat className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400 " />
-                                Omformulere
-                              </div>
-                              <ChevronRight className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="right" sideOffset={5} className="bg-white dark:bg-gray-800" ref={dropdownRef}>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'akademisk', e)}>Akademisk</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'uformelt', e)}>Uformelt</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'overbevisende', e)}>Overbevisende</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'dristig', e)}>Dristig</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('paraphrase', 'vennlig', e)}>Vennlig</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="w-full justify-between text-xs py-1 h-auto pl-0 dark:text-white">
-                              <div className="flex items-center">
-                                <Minimize2 className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
-                                Forenkle
-                              </div>
-                              <ChevronRight className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="right" sideOffset={5} className="bg-white dark:bg-gray-800">
-                            <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'akademisk', e)}>Akademisk</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'uformelt', e)}>Uformelt</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'overbevisende', e)}>Overbevisende</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'dristig', e)}>Dristig</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleAIAction('simplify', 'vennlig', e)}>Vennlig</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <Button variant="ghost" className="w-full justify-start text-xs py-1 h-auto pl-0 dark:text-white" onClick={() => handleAIAction('expand')}>
-                          <ArrowRightCircle className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
-                          Gjør lengre
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="w-full justify-between text-xs py-1 h-auto pl-0 dark:text-white">
-                              <div className="flex items-center">
-                                <Languages className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
-                                Oversett
-                              </div>
-                              <ChevronRight className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="right" sideOffset={5} className="bg-white dark:bg-gray-800">
-                            <DropdownMenuItem onClick={() => handleAIAction('Oversett til engelsk')}>Til engelsk</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAIAction('Oversett til norsk')}>Til norsk</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold mt-4 mb-2 text-sm text-black dark:text-white">Generer fra valgt tekst</h3>
-                      <div className="space-y-1">
-                        <Button variant="ghost" className="w-full justify-start text-xs py-1 h-auto pl-0 dark:text-white" onClick={() => handleAIAction('summarize')}>
-                          <FileText className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
-                          Oppsummer
-                        </Button>
-                        <Button variant="ghost" className="w-full justify-start text-xs py-1 h-auto pl-0 dark:text-white" onClick={() => handleAIAction('counterargument')}>
-                          <Scale className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
-                          Skriv motargument
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
             {showSNLLookup && (
               <div
                 ref={snlLookupRef}
